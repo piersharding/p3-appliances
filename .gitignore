@@ -12,3 +12,4 @@ ansible/roles/stackhpc.cluster-infra
 # IntelliJ files
 .idea
 *.iml
+.Rproj.user
