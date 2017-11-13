@@ -1,0 +1,5 @@
+
+- name: Apt dist upgrade
+  apt:
+    upgrade: dist
+    autoremove: yes

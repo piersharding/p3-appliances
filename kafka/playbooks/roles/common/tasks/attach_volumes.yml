@@ -1,0 +1,16 @@
+
+# - name: attach kafka_logs volume to host
+#   os_server_volume:
+#     state: present
+#     server: "{{ item.instance_name }}"
+#     volume: "kafka_logs_{{ item.instance_name }}"
+#     device: /dev/vdb
+#   with_items: "{{ instances }}"
+  
+# - name: attach kafka_data volume to host
+#   os_server_volume:
+#     state: present
+#     server: "{{ item.instance_name }}"
+#     volume: "kafka_data_{{ item.instance_name }}"
+#     device: /dev/vdc
+#   with_items: "{{ instances }}"

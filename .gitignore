@@ -13,3 +13,7 @@ ansible/roles/stackhpc.cluster-infra
 .idea
 *.iml
 .Rproj.user
+p3venv
+*.csv
+*.Rproj
+.Rhistory
