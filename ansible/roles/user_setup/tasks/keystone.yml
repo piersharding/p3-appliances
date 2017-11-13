@@ -1,23 +1,35 @@
 ---
 - name: Ensure that Keystone user auth packages are installed
-  yum:
+  apt:
     name: "{{item}}"
     state: present
   with_items:
-    - pam-python
-    - pam-keystone
+    - python-pam
+    # - pam-keystone
+
+- name: Install Keystone auth sript
+  copy:
+    src: keystone-auth.py
+    dest: /lib/x86_64-linux-gnu/security/keystone-auth.py
+    mode: 0755
+    owner: root
+    group: root
+
 
 # Takes effect automatically
 - name: Update PAM auth configuration
   lineinfile:
     create: no
     state: present
+    # insertbefore: "auth *sufficient *pam_unix.*"
     insertbefore: "auth *sufficient *pam_unix.*"
-    line: "auth        sufficient    pam_python.so /usr/lib64/security/keystone-auth.py {{alaska_cloud}}"
+    line: "auth        sufficient    pam_python.so /lib/x86_64-linux-gnu/security/keystone-auth.py {{alaska_cloud}}"
     path: "{{item}}"
   with_items:
-    - /etc/pam.d/system-auth-ac
-    - /etc/pam.d/password-auth-ac
+    # - /etc/pam.d/system-auth-ac
+    # - /etc/pam.d/password-auth-ac
+    - /etc/pam.d/common-auth
+    - /etc/pam.d/common-password
 
 - name: Enable PasswordAuthentication in SSH config 
   lineinfile:

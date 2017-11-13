@@ -4,7 +4,7 @@
     name: Europe/London
 
 - name: Ensure NTP packages are installed
-  yum:
+  apt:
     name: ntp
     state: present
 
@@ -20,7 +20,7 @@
 
 - name: Ensure NTP is enabled
   service:
-    name: ntpd
+    name: ntp
     enabled: yes
   notify:
     - Restart NTP
