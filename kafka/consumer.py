@@ -149,7 +149,7 @@ def purge_output_dir(output_dir):
             for name in dirs:
                 os.rmdir(os.path.join(root, name))
     else:
-        os.mkdir(options.dir)
+        os.mkdir(output_dir)
 
 
 # main
@@ -179,18 +179,19 @@ def main():
                              # consumer_timeout_ms=3000,
                              # request_timeout_ms=10000,
                              # session_timeout_ms=3000,
-                             receive_buffer_bytes=(options.chunksize + 100) * 10,
+                             receive_buffer_bytes=(options.chunksize +
+                                                   100) * 10,
                              fetch_max_bytes=(options.chunksize + 100) * 10,
-                             max_partition_fetch_bytes=(options.chunksize + 100) * 10)
+                             max_partition_fetch_bytes=(options.chunksize +
+                                                        100) * 10)
 
     logging.info('consumer connected: %s ', consumer)
 
-
     # trap the keyboard interrupt
-    def signal_handler(signal, frame):
+    def signal_handler(signal_caught, frame):
         """ Catch the keyboard interrupt and gracefully exit
         """
-        logging.info('You pressed Ctrl+C!')
+        logging.info('You pressed Ctrl+C!: %s/%s', signal_caught, frame)
         consumer.close()
         sys.exit(0)
 
@@ -212,17 +213,17 @@ def main():
         for message in consumer:
             message = my_deserialiser(message)
             logging.debug("%s:%d:%d: key=%s rawlen=%d " +
-                         "datalen=%d uuid=%s seg=%d batch_tot=%d",
-                         message.topic, message.partition,
-                         message.offset, message.key, len(message.value),
-                         message.datalen, message.uuid,
-                         int(message.seg), message.batch_tot)
+                          "datalen=%d uuid=%s seg=%d batch_tot=%d",
+                          message.topic, message.partition,
+                          message.offset, message.key, len(message.value),
+                          message.datalen, message.uuid,
+                          int(message.seg), message.batch_tot)
             logging.debug("%s:%d:%d: key=%s metadata=%s",
                           message.topic, message.partition,
                           message.offset, message.key, message.value[0:93])
 
             # stash file parts
-            if not options.nofiles == True:
+            if not options.nofiles:
                 filename = (options.filename + '.' + message.uuid +
                             '.part.' + message.seg)
                 with open(filename, 'wb') as fileobj:
@@ -240,12 +241,13 @@ def main():
                 tot = 0
                 filename = ""
                 file_checksum = ""
-                if not options.nofiles == True:
+                if not options.nofiles:
                     filename = options.filename + '.' + message.uuid + '.txt'
                     with open(filename, 'wb') as out:
-                        # delete any existing files
-                        for part in sorted(glob.glob(options.filename + '.' +
-                                                     message.uuid + '.part.*')):
+                        for part in sorted(glob.glob(options.filename +
+                                                     '.' +
+                                                     message.uuid +
+                                                     '.part.*')):
                             with open(part, 'rb') as infile:
                                 data = infile.read()
                             out.write(data)
@@ -257,7 +259,8 @@ def main():
                             tot += len(data)
                     # check the checksum
                     file_checksum = md5checksum(filename)
-                # commit after each large message found - this is actually wrong !
+                # commit after each large message found
+                # - this is actually wrong when multiple partitions !
                 consumer.commit()
                 build_time = time.time() - batches[message.uuid]['start_time']
                 logging.info('completed file: %s of length: %d ' +
@@ -269,7 +272,7 @@ def main():
                 csvwriter.writerow([message.uuid, message.checksum,
                                     file_checksum,
                                     ('OK' if file_checksum ==
-                                    message.checksum else 'NOT_OK'),
+                                     message.checksum else 'NOT_OK'),
                                     tot, message.batch_tot,
                                     build_time])
                 csvfile.flush()
