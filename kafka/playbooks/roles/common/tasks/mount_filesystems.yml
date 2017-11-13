@@ -1,0 +1,40 @@
+
+# - name: Format kafka_logs
+#   filesystem:
+#     fstype: xfs
+#     dev: /dev/vdb
+
+# - name: mount kafka_logs
+#   mount:
+#     name: /var/lib/kafka-logs
+#     src: /dev/vdb
+#     opts: defaults,noatime
+#     dump: 0
+#     passno: 0
+#     fstype: xfs
+#     state: mounted
+
+- name: Ensure the /var/lib/kafka-logs directory mountpoint exists
+  file:
+    path: /var/lib/kafka-logs
+    state: directory
+
+# - name: Format kafka_data
+#   filesystem:
+#     fstype: xfs
+#     dev: /dev/vdc
+
+# - name: mount kafka_data
+#   mount:
+#     name: /var/lib/kafka-data
+#     src: /dev/vdc
+#     opts: defaults,noatime
+#     dump: 0
+#     passno: 0
+#     fstype: xfs
+#     state: mounted
+
+- name: Ensure the /var/lib/kafka-data directory mountpoint exists
+  file:
+    path: /var/lib/kafka-data
+    state: directory

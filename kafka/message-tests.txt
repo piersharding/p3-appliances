@@ -1,0 +1,370 @@
+./kafka-producer-perf-test.sh --topic test100m --num-records 10 --record-size 104857600 --throughput 1  --producer-props acks=-1 bootstrap.servers="kafka-master-0:9092,kafka-worker-0:9092,kafka-worker-1:9092" buffer.memory=671088640 batch.size=1 max.request.size=1048576000
+
+./kafka-producer-perf-test.sh --topic test1k --num-records 10 --record-size 1024 --throughput 1  --producer-props acks=-1 bootstrap.servers="kafka-master-0:9092,kafka-worker-0:9092,kafka-worker-1:9092" buffer.memory=671088640 batch.size=1000 max.request.size=1048576000
+
+
+./kafka-producer-perf-test.sh --topic test1k --num-records 100000 --record-size 1024 --throughput 10000  --producer-props acks=-1 bootstrap.servers="kafka-master-0:9092,kafka-worker-0:9092,kafka-worker-1:9092" buffer.memory=671088640 batch.size=1000 max.request.size=1048576000
+
+
+./kafka-consumer-perf-test.sh  --topic test1k  --zookeeper kafka-master-0:2181 --broker-list "kafka-master-0:9092,kafka-worker-0:9092,kafka-worker-1:9092" --num-fetch-threads 10 --reporting-interval 100000
+
+./kafka-consumer-perf-test.sh  --topic test256b  --zookeeper kafka-master-0:2181  --num-fetch-threads 10 --threads 10 --fetch-size 10485760 --reporting-interval 250000 --messages 100000000 --group test1
+
+
+ubuntu@kafka-client-0:/opt/kafka/bin$ /opt/kafka/bin/kafka-topics.sh --delete --zookeeper kafka-worker-1:2181 --topic test256b
+Topic test256b is already marked for deletion.
+ubuntu@kafka-client-0:/opt/kafka/bin$ /opt/kafka/bin/kafka-topics.sh --list --zookeeper kafka-master-0:2181
+__consumer_offsets
+collectd
+metricsets
+parse-err
+rsyslog
+test100m
+test1k
+test256b - marked for deletion
+ubuntu@kafka-client-0:/opt/kafka/bin$ /opt/kafka/bin/kafka-topics.sh --list --zookeeper kafka-master-0:2181
+__consumer_offsets
+collectd
+metricsets
+parse-err
+rsyslog
+test100m
+test1k
+ubuntu@kafka-client-0:/opt/kafka/bin$ /opt/kafka/bin/kafka-topics.sh --create --zookeeper kafka-master-0:2181 --replication-factor 2 --partitions 10 --topic test256b
+Created topic "test256b".
+
+
+
+
+ubuntu@kafka-client-0:/opt/kafka/bin$ ./sangrenel -brokers kafka-master-0:9092,kafka-worker-0:9092,kafka-worker-1:9092 -compression snappy -interval 300 -message-batch-size 1 -message-size 1024 -produce-rate 10 -required-acks local  -workers 4 -writers-per-worker 5 -topic test1k
+
+Starting 4 client workers, 5 writers per worker
+Message size 1024 bytes, 1 message limit per batch
+Compression: snappy, RequiredAcks: local
+2017/11/08 18:12:05 worker_3 connected
+2017/11/08 18:12:05 worker_2 connected
+2017/11/08 18:12:05 worker_4 connected
+2017/11/08 18:12:05 worker_1 connected
+
+2017/11/08 18:17:05 [ topic: test1k ]
+> Messages: 334Mb/sec @ 42738 msgs/sec. | error rate 0.00%
+> Batches: 42744.20 batches/sec. | 1.212ms p99 | 309µs HMean | 141µs Min | 67.191ms Max
+     141µs - 6.846ms --------------------------------------------------
+  6.846ms - 13.551ms -
+ 13.551ms - 20.256ms -
+ 20.256ms - 26.961ms -
+ 26.961ms - 33.666ms -
+ 33.666ms - 40.371ms -
+ 40.371ms - 47.076ms -
+ 47.076ms - 53.781ms -
+ 53.781ms - 60.486ms -
+ 60.486ms - 67.191ms -
+
+
+2017/11/08 18:22:10 [ topic: test1k ]
+> Messages: 369Mb/sec @ 47277 msgs/sec. | error rate 0.00%
+> Batches: 47261.42 batches/sec. | 744µs p99 | 273µs HMean | 0s Min | 1.262862s Max
+      0s - 126.286ms --------------------------------------------------
+126.286ms - 252.572ms -
+252.572ms - 378.858ms -
+378.858ms - 505.145ms -
+505.145ms - 631.431ms -
+631.431ms - 757.717ms -
+757.717ms - 884.003ms -
+884.003ms - 1.010289s -
+1.010289s - 1.136575s -
+1.136575s - 1.262862s -
+
+
+
+
+ubuntu@kafka-client-0:/opt/kafka/bin$ ./sangrenel -brokers kafka-master-0:9092,kafka-worker-0:9092,kafka-worker-1:9092 -compression snappy -interval 300 -message-batch-size 1 -message-size 1048576 -produce-rate 1000000 -required-acks local  -workers 4 -writers-per-worker 5 -topic test1m
+
+Starting 4 client workers, 5 writers per worker
+Message size 1048576 bytes, 1 message limit per batch
+Compression: snappy, RequiredAcks: local
+2017/11/08 18:51:41 worker_3 connected
+2017/11/08 18:51:41 worker_4 connected
+2017/11/08 18:51:41 worker_2 connected
+2017/11/08 18:51:41 worker_1 connected
+
+2017/11/08 18:56:41 [ topic: test1m ]
+> Messages: 2109Mb/sec @ 264 msgs/sec. | error rate 0.00%
+> Batches: 263.57 batches/sec. | 90.475ms p99 | 16.762ms HMean | 8.198ms Min | 9.16454s Max
+ 8.198ms - 923.832ms --------------------------------------------------
+923.832ms - 1.839467s -
+1.839467s - 2.755101s -
+2.755101s - 3.670735s -
+3.670735s - 4.586369s -
+4.586369s - 5.502003s -
+5.502003s - 6.417638s -
+6.417638s - 7.333272s -
+7.333272s - 8.248906s -
+8.248906s - 9.16454s -
+
+
+2017/11/08 19:01:41 [ topic: test1m ]
+> Messages: 2082Mb/sec @ 260 msgs/sec. | error rate 0.00%
+> Batches: 260.26 batches/sec. | 112.882ms p99 | 16.93ms HMean | 8.349ms Min | 4.937819s Max
+ 8.349ms - 501.296ms --------------------------------------------------
+501.296ms - 994.243ms -
+994.243ms - 1.48719s -
+1.48719s - 1.980137s -
+1.980137s - 2.473084s -
+2.473084s - 2.966031s -
+2.966031s - 3.458978s -
+3.458978s - 3.951925s -
+3.951925s - 4.444872s -
+4.444872s - 4.937819s -
+
+
+
+
+
+
+ubuntu@kafka-client-0:/opt/kafka/bin$ ./sangrenel -brokers kafka-master-0:9092,kafka-worker-0:9092,kafka-worker-1:9092 -compression snappy -interval 300 -message-batch-size 1 -message-size 10485760 -produce-rate 1000000 -required-acks local  -workers 4 -writers-per-worker 5 -topic test10m
+
+Starting 4 client workers, 5 writers per worker
+Message size 10485760 bytes, 1 message limit per batch
+Compression: snappy, RequiredAcks: local
+2017/11/08 19:14:46 worker_2 connected
+2017/11/08 19:14:46 worker_4 connected
+2017/11/08 19:14:46 worker_3 connected
+2017/11/08 19:14:46 worker_1 connected
+
+2017/11/08 19:19:46 [ topic: test10m ]
+> Messages: 2636Mb/sec @ 33 msgs/sec. | error rate 0.00%
+> Batches: 32.95 batches/sec. | 1.856245s p99 | 200.41ms HMean | 88.263ms Min | 7.385331s Max
+ 88.263ms - 817.97ms --------------------------------------------------
+817.97ms - 1.547677s -
+1.547677s - 2.277383s -
+2.277383s - 3.00709s -
+3.00709s - 3.736797s -
+3.736797s - 4.466504s -
+4.466504s - 5.19621s -
+5.19621s - 5.925917s -
+5.925917s - 6.655624s -
+6.655624s - 7.385331s -
+
+
+2017/11/08 19:24:46 [ topic: test10m ]
+> Messages: 2482Mb/sec @ 31 msgs/sec. | error rate 0.00%
+> Batches: 31.02 batches/sec. | 2.677875s p99 | 226.191ms HMean | 111.262ms Min | 5.965229s Max
+111.262ms - 696.659ms --------------------------------------------------
+696.659ms - 1.282056s -
+1.282056s - 1.867452s -
+1.867452s - 2.452849s -
+2.452849s - 3.038246s -
+3.038246s - 3.623642s -
+3.623642s - 4.209039s -
+4.209039s - 4.794435s -
+4.794435s - 5.379832s -
+5.379832s - 5.965229s -
+
+
+
+
+
+
+
+ubuntu@kafka-client-0:/opt/kafka/bin$ ./sangrenel -brokers kafka-master-0:9092,kafka-worker-0:9092,kafka-worker-1:9092 -compression snappy -interval 300 -message-batch-size 1 -message-size 103809024 -produce-rate 1000000 -required-acks local  -workers 2 -writers-per-worker 5 -topic test100m
+
+Starting 2 client workers, 5 writers per worker
+Message size 103809024 bytes, 1 message limit per batch
+Compression: snappy, RequiredAcks: local
+2017/11/08 19:52:28 worker_1 connected
+2017/11/08 19:52:28 worker_2 connected
+
+2017/11/08 19:57:28 [ topic: test100m ]
+> Messages: 1756Mb/sec @ 2 msgs/sec. | error rate 0.00%
+> Batches: 2.22 batches/sec. | 3.628178s p99 | 1.477268s HMean | 939.238ms Min | 4.630279s Max
+939.238ms - 1.308342s --------------------------------------------------
+1.308342s - 1.677446s ----------------------------------------------
+1.677446s - 2.04655s -------------------
+2.04655s - 2.415654s ---------
+2.415654s - 2.784758s --------
+2.784758s - 3.153862s ----
+3.153862s - 3.522967s ---
+3.522967s - 3.892071s --
+3.892071s - 4.261175s -
+4.261175s - 4.630279s -
+
+
+2017/11/08 20:02:28 [ topic: test100m ]
+> Messages: 1861Mb/sec @ 2 msgs/sec. | error rate 0.00%
+> Batches: 2.35 batches/sec. | 3.077757s p99 | 1.330565s HMean | 917.435ms Min | 4.604616s Max
+917.435ms - 1.286153s --------------------------------------------------
+1.286153s - 1.654871s ----------------------------
+1.654871s - 2.02359s ------------
+2.02359s - 2.392308s ------
+2.392308s - 2.761026s --
+2.761026s - 3.129744s -
+3.129744s - 3.498462s -
+3.498462s - 3.86718s -
+3.86718s - 4.235898s -
+4.235898s - 4.604616s -
+
+
+
+
+
+
+
+
+
+
+
+
+./kafka-producer-perf-test.sh --topic test100m --num-records 1000 --record-size 104857600 --throughput 10  --producer-props acks=-1 bootstrap.servers="kafka-master-0:9092,kafka-worker-0:9092,kafka-worker-1:9092" buffer.memory=671088640 batch.size=1 max.request.size=1048576000
+
+
+
+
+1MB messages per second
+------------------------------------------------------------
+ubuntu@kafka-client-0:/opt/kafka/bin$ ./sangrenel -brokers kafka-master-0:9092,kafka-worker-0:9092,kafka-worker-1:9092 -compression gzip    -in
+terval 300 -message-batch-size 1 -message-size 1048576 -produce-rate 10000 -required-acks local    -workers 5 -writers-per-worker 5 -topic test
+1m10
+
+Starting 5 client workers, 5 writers per worker
+Message size 1048576 bytes, 1 message limit per batch
+Compression: gzip, RequiredAcks: local
+2017/11/08 03:02:33 worker_2 connected
+2017/11/08 03:02:33 worker_3 connected
+2017/11/08 03:02:33 worker_5 connected
+2017/11/08 03:02:33 worker_4 connected
+2017/11/08 03:02:33 worker_1 connected
+
+
+2017/11/08 03:07:33 [ topic: test1m10 ]
+> Messages: 621Mb/sec @ 78 msgs/sec. | error rate 0.00%
+> Batches: 900.54 batches/sec. | 463.92ms p99 | 0s HMean | 0s Min | 1.227195s Max
+      0s - 122.719ms --------------------------------------------------
+122.719ms - 245.439ms ---
+245.439ms - 368.158ms --
+368.158ms - 490.878ms -
+490.878ms - 613.597ms -
+613.597ms - 736.317ms -
+736.317ms - 859.036ms -
+859.036ms - 981.756ms -
+981.756ms - 1.104475s -
+1.104475s - 1.227195s -
+
+
+2017/11/08 03:12:33 [ topic: test1m10 ]
+> Messages: 624Mb/sec @ 78 msgs/sec. | error rate 0.00%
+> Batches: 1098.57 batches/sec. | 397.95ms p99 | 0s HMean | 0s Min | 1.237641s Max
+      0s - 123.764ms --------------------------------------------------
+123.764ms - 247.528ms --
+247.528ms - 371.292ms -
+371.292ms - 495.056ms -
+495.056ms - 618.82ms -
+618.82ms - 742.584ms -
+742.584ms - 866.348ms -
+866.348ms - 990.112ms -
+990.112ms - 1.113876s -
+1.113876s - 1.237641s -
+
+
+
+
+ubuntu@kafka-client-0:/opt/kafka/bin$ ./sangrenel -brokers kafka-master-0:9092,kafka-worker-0:9092,kafka-worker-1:9092 -compression snappy -interval 300 -message-batch-size 1 -message-size 1048576 -produce-rate 10000 -required-acks local -workers 2 -writers-per-worker 5 -topic test1m10
+
+Starting 2 client workers, 5 writers per worker
+Message size 1048576 bytes, 1 message limit per batch
+Compression: snappy, RequiredAcks: local
+2017/11/08 03:32:31 worker_2 connected
+2017/11/08 03:32:31 worker_1 connected
+
+2017/11/08 03:37:31 [ topic: test1m10 ]
+> Messages: 1150Mb/sec @ 144 msgs/sec. | error rate 0.00%
+> Batches: 767.60 batches/sec. | 38.439ms p99 | 1µs HMean | 0s Min | 3.734523s Max
+      0s - 373.452ms --------------------------------------------------
+373.452ms - 746.905ms -
+746.905ms - 1.120357s -
+1.120357s - 1.493809s -
+1.493809s - 1.867261s -
+1.867261s - 2.240714s -
+2.240714s - 2.614166s -
+2.614166s - 2.987618s -
+2.987618s - 3.36107s -
+3.36107s - 3.734523s -
+
+
+2017/11/08 03:42:31 [ topic: test1m10 ]
+> Messages: 1191Mb/sec @ 149 msgs/sec. | error rate 0.00%
+> Batches: 974.93 batches/sec. | 32.921ms p99 | 0s HMean | 0s Min | 2.84154s Max
+      0s - 284.154ms --------------------------------------------------
+284.154ms - 568.308ms -
+568.308ms - 852.462ms -
+852.462ms - 1.136616s -
+1.136616s - 1.42077s -
+1.42077s - 1.704924s -
+1.704924s - 1.989078s -
+1.989078s - 2.273232s -
+2.273232s - 2.557386s -
+2.557386s - 2.84154s -
+
+
+
+
+---------------------------------------------------
+1Mb messages with 20 partitions
+====================================
+
+
+ubuntu@kafka-client-0:/opt/kafka/bin$ ./sangrenel -brokers kafka-master-0:9092,kafka-worker-0:9092,kafka-worker-1:9092 -compression snappy -int
+erval 300 -message-batch-size 1 -message-size 1048576 -produce-rate 10000 -required-acks local -workers 4 -writers-per-worker 5 -topic test1m10
+
+
+Starting 4 client workers, 5 writers per worker
+Message size 1048576 bytes, 1 message limit per batch
+Compression: snappy, RequiredAcks: local
+2017/11/08 03:46:32 worker_3 connected
+2017/11/08 03:46:32 worker_1 connected
+2017/11/08 03:46:32 worker_4 connected
+2017/11/08 03:46:32 worker_2 connected
+
+2017/11/08 03:51:32 [ topic: test1m10 ]
+> Messages: 2123Mb/sec @ 265 msgs/sec. | error rate 0.00%
+> Batches: 725.25 batches/sec. | 64.342ms p99 | 1µs HMean | 0s Min | 4.466133s Max
+      0s - 446.613ms --------------------------------------------------
+446.613ms - 893.227ms -
+893.227ms - 1.33984s -
+1.33984s - 1.786453s -
+1.786453s - 2.233067s -
+2.233067s - 2.67968s -
+2.67968s - 3.126293s -
+3.126293s - 3.572906s -
+3.572906s - 4.01952s -
+4.01952s - 4.466133s -
+
+
+2017/11/08 03:56:32 [ topic: test1m10 ]
+> Messages: 1951Mb/sec @ 244 msgs/sec. | error rate 0.02%
+> Batches: 1071.51 batches/sec. | 56.449ms p99 | 0s HMean | 0s Min | 6.461546s Max
+      0s - 646.155ms --------------------------------------------------
+646.155ms - 1.292309s -
+1.292309s - 1.938464s -
+1.938464s - 2.584618s -
+2.584618s - 3.230773s -
+3.230773s - 3.876928s -
+3.876928s - 4.523082s -
+4.523082s - 5.169237s -
+5.169237s - 5.815391s -
+5.815391s - 6.461546s -
+
+
+2017/11/08 04:01:32 [ topic: test1m10 ]
+> Messages: 2026Mb/sec @ 253 msgs/sec. | error rate 0.00%
+> Batches: 1049.65 batches/sec. | 55.678ms p99 | 1µs HMean | 0s Min | 7.768877s Max
+      0s - 776.888ms --------------------------------------------------
+776.888ms - 1.553775s -
+1.553775s - 2.330663s -
+2.330663s - 3.107551s -
+3.107551s - 3.884439s -
+3.884439s - 4.661326s -
+4.661326s - 5.438214s -
+5.438214s - 6.215102s -
+6.215102s - 6.991989s -
+6.991989s - 7.768877s -

@@ -1,0 +1,4 @@
+---
+- include: setup.yml
+- include: ceph-client.yml
+- include: users.yml

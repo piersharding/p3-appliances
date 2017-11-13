@@ -1,0 +1,32 @@
+
+- name: Set hostnames
+  hostname: name="{{inventory_hostname}}"
+  when: not inventory_hostname == "localhost"
+  become: true
+
+# - debug: var=ansible_default_ipv4
+
+- name: update /etc/hosts
+  lineinfile:  dest=/etc/hosts regexp='{{ ansible_default_ipv4.address }} .*{{inventory_hostname}}'
+              line="{{ ansible_default_ipv4.address }} {{inventory_hostname}}"
+              state=present
+  when: not inventory_hostname == "localhost"
+  register: updatehosts
+  become: true
+
+
+# - name: Set hosts file
+#   template: src=hosts.j2 dest=/etc/hosts mode=0644
+
+# - debug: var=groups
+
+# - debug: var=hostvars
+
+- name: update /etc/hosts
+  lineinfile:  dest=/etc/hosts regexp='.*{{hostvars[item].inventory_hostname}}.*'
+              line="{{hostvars[item].ansible_default_ipv4.address}} {{hostvars[item].inventory_hostname}}"
+              state=present
+  with_items: '{{groups["kafka-nodes"]}}'
+  when: not item == "localhost"
+  register: updatehosts
+  become: true

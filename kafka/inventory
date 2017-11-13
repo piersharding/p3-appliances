@@ -1,0 +1,17 @@
+
+[kafka-client:children]
+kafka_client
+
+[kafka-master:children]
+kafka_master
+
+[kafka-workers:children]
+kafka_worker
+
+[kafka-nodes:children]
+kafka-master
+kafka-workers
+
+[zookeeper-nodes:children]
+kafka-master
+kafka-workers

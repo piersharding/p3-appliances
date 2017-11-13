@@ -1,0 +1,40 @@
+#!/usr/bin/env ansible-playbook
+---
+
+- name: "Apply the common role to kafka nodes"
+  hosts:
+    - kafka-nodes
+    - kafka-client
+  become: yes
+  become_method: sudo
+  roles:
+    - common
+
+- name: "Show debug info"
+  hosts:
+    - kafka-nodes
+    - kafka-client
+  become: yes
+  tasks:
+    - name: "Show Kafka nodes info"
+      debug: var=hostvars[inventory_hostname]
+      when: debug
+
+- name: "Apply the zookeeper role to the Zookeeper nodes"
+  hosts: zookeeper-nodes
+  become: yes
+  roles:
+    - zookeeper
+
+- name: "Apply the kafka role to the Kafka nodes"
+  hosts: kafka-nodes
+  become: yes
+  roles:
+    - kafka
+
+- name: "Setup client services"
+  hosts:
+    - kafka-client
+  become: yes
+  roles:
+    - client

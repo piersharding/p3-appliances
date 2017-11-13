@@ -1,0 +1,113 @@
+http://ingest.tips/2015/01/21/handling-large-messages-kafka/
+https://grey-boundary.io/load-testing-apache-kafka-on-aws/
+
+
+2017/07/25 23:31:52 [ topic: test1k ]
+> Messages: 10KB/sec @ 10 msgs/sec. | error rate 0.00%
+> Batches: 10.00 batches/sec. | 10.776ms p99 | 2.776ms HMean | 1.132ms Min | 17.871ms Max
+   1.132ms - 2.806ms --------------------------------------------------
+    2.806ms - 4.48ms ------------------------------
+    4.48ms - 6.154ms --------------
+   6.154ms - 7.828ms ----
+   7.828ms - 9.502ms -
+  9.502ms - 11.175ms -
+ 11.175ms - 12.849ms -
+ 12.849ms - 14.523ms -
+ 14.523ms - 16.197ms -
+
+
+2017/07/25 23:32:52 [ topic: test1k ]
+> Messages: 10KB/sec @ 10 msgs/sec. | error rate 0.00%
+> Batches: 10.00 batches/sec. | 7.191ms p99 | 2.483ms HMean | 945µs Min | 10.651ms Max
+     945µs - 1.916ms ------------------------
+   1.916ms - 2.886ms --------------------------------------------------
+   2.886ms - 3.857ms --------------------
+   3.857ms - 4.828ms -----------
+   4.828ms - 5.798ms --------
+   5.798ms - 6.769ms -----
+   6.769ms - 7.739ms -
+    7.739ms - 8.71ms -
+     8.71ms - 9.68ms -
+   9.68ms - 10.651ms -
+
+
+
+
+
+2017/07/25 23:35:07 [ topic: test1m ]
+> Messages: 80Mb/sec @ 10 msgs/sec. | error rate 0.00%
+> Batches: 10.00 batches/sec. | 299.703ms p99 | 152.434ms HMean | 103.112ms Min | 324.075ms Max
+103.112ms - 125.209ms --------------------------------
+125.209ms - 147.305ms --------------------------------------------------
+147.305ms - 169.401ms --------------------------------------
+169.401ms - 191.498ms -------------------------
+191.498ms - 213.594ms --------------
+213.594ms - 235.69ms --------
+235.69ms - 257.786ms ---
+257.786ms - 279.883ms --
+279.883ms - 301.979ms -
+301.979ms - 324.075ms -
+
+
+2017/07/25 23:36:07 [ topic: test1m ]
+> Messages: 80Mb/sec @ 10 msgs/sec. | error rate 0.00%
+> Batches: 10.00 batches/sec. | 243.841ms p99 | 138.757ms HMean | 98.609ms Min | 318.266ms Max
+98.609ms - 120.575ms ------------------------------
+120.575ms - 142.54ms --------------------------------------------------
+142.54ms - 164.506ms ---------------------------------------
+164.506ms - 186.472ms -------------
+186.472ms - 208.437ms ----
+208.437ms - 230.403ms ----
+230.403ms - 252.369ms -
+252.369ms - 274.334ms -
+ 274.334ms - 296.3ms -
+ 296.3ms - 318.266ms -
+
+
+
+
+
+2017/07/25 23:42:07 [ topic: test10m ]
+> Messages: 466Mb/sec @ 6 msgs/sec. | error rate 100.00%
+> Batches: 5.83 batches/sec. | 1.279338s p99 | 1.073914s HMean | 836.014ms Min | 1.305708s Max
+836.014ms - 882.983ms -
+882.983ms - 929.953ms ---
+929.953ms - 976.922ms ----------------
+976.922ms - 1.023892s ------------------------
+1.023892s - 1.070861s --------------------------------------------------
+1.070861s - 1.117831s -------------------------------------
+ 1.117831s - 1.1648s -------------------------------
+ 1.1648s - 1.211769s -------------------------
+1.211769s - 1.258739s -------
+1.258739s - 1.305708s --
+
+
+2017/07/25 23:43:07 [ topic: test10m ]
+> Messages: 461Mb/sec @ 6 msgs/sec. | error rate 100.00%
+> Batches: 5.77 batches/sec. | 1.309527s p99 | 1.079708s HMean | 819.017ms Min | 1.340981s Max
+819.017ms - 871.213ms -
+871.213ms - 923.41ms ----
+923.41ms - 975.606ms -----------------
+975.606ms - 1.027803s --------------------------
+1.027803s - 1.079999s ---------------------------------
+1.079999s - 1.132196s --------------------------------------------------
+1.132196s - 1.184392s -----------------------------------
+1.184392s - 1.236588s -----------------
+1.236588s - 1.288785s ------
+1.288785s - 1.340981s -
+
+
+ubuntu@manager1:/opt/kafka/bin$ ./kafka-producer-perf-test.sh --topic test100m --num-records 10 --record-size 104857600 --throughput 1  --producer-props acks=-1 bootstrap.servers="manager1:9092,worker1:9092,worker2:9092" buffer.memory=671088640 batch.size=1 max.request.size=1048576000
+1 records sent, 0.1 records/sec (6.58 MB/sec), 15187.0 ms avg latency, 15187.0 max latency.
+2 records sent, 0.1 records/sec (6.89 MB/sec), 26955.0 ms avg latency, 39853.0 max latency.
+org.apache.kafka.common.errors.NetworkException: The server disconnected before a response was received.
+org.apache.kafka.common.errors.NetworkException: The server disconnected before a response was received.
+org.apache.kafka.common.errors.NetworkException: The server disconnected before a response was received.
+org.apache.kafka.common.errors.NetworkException: The server disconnected before a response was received.
+4 records sent, 0.1 records/sec (13.29 MB/sec), 48821.5 ms avg latency, 68746.0 max latency.
+org.apache.kafka.common.errors.NetworkException: The server disconnected before a response was received.
+org.apache.kafka.common.errors.NetworkException: The server disconnected before a response was received.
+org.apache.kafka.common.errors.NetworkException: The server disconnected before a response was received.
+org.apache.kafka.common.errors.NetworkException: The server disconnected before a response was received.
+10 records sent, 0.133535 records/sec (13.35 MB/sec), 41095.10 ms avg latency, 68746.00 ms max latency, 41936 ms 50th, 68746 ms 95th, 68746 ms 99th, 68746 ms 99.9th.
+ubuntu@manager1:/opt/kafka/bin$ logout
