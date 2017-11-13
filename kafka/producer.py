@@ -107,16 +107,13 @@ def md5checksum(fname):
 
 
 @timeit
-def send_message_chunks(fromfile, checksum, topic_id, producer, csvwriter, options):
+def send_message_chunks(fromfile, checksum, producer, csvwriter, options):
     """ Send partition files as chunks to Kafka with complete message metadata
     """
     start_time = time.time()
     uuid = ''.join(random.choice(string.ascii_letters + string.digits)
                    for _ in range(16))
     datalen = 0
-    # tot = 0
-    # do this in memory because of all the files
-    # if options.chunksize > 10240:
     tot = len(glob.glob(fromfile + '.part*'))
     for i, part in enumerate(sorted(glob.glob(fromfile + '.part*'))):
         prefix = 'part: %s checksum: %s seg: %07d/%07d data: ' % \
@@ -126,21 +123,11 @@ def send_message_chunks(fromfile, checksum, topic_id, producer, csvwriter, optio
         # why does this not work?
         # producer.send(topic_id, key=uuid,
         #               value=prefix.encode('utf-8') + data)
-        producer.send(topic_id, prefix.encode('utf-8') + data)
+        producer.send(options.topic_id, prefix.encode('utf-8') + data)
         datalen += len(data)
         logging.debug('sent message segment with key/segs: %s[%d] ' +
                       'to: %s [%d] prefix: [%s]',
-                      uuid, len(data), topic_id, datalen, prefix)
-    # else:
-    #     tot = options.msgsize / options.chunksize
-    #     for i, data in split_in_mem(options.filename, options.chunksize):
-    #         prefix = 'part: %s checksum: %s seg: %07d/%07d data: ' % \
-    #                  (uuid, checksum, i, tot)
-    #         producer.send(topic_id, prefix.encode('utf-8') + data)
-    #         datalen += len(data)
-    #         logging.debug('sent message segment with key/segs: %s[%d] ' +
-    #                       'to: %s [%d] prefix: [%s]',
-    #                       uuid, len(data), topic_id, datalen, prefix)
+                      uuid, len(data), options.topic_id, datalen, prefix)
 
     # block until all async messages are sent
     producer.flush()
@@ -149,7 +136,7 @@ def send_message_chunks(fromfile, checksum, topic_id, producer, csvwriter, optio
     csvwriter.writerow([uuid, checksum, datalen, tot, build_time])
     logging.info('sent messages with key/segs: %s[%d] ' +
                  'to: %s [%d] prefix: [%s] in: %3.03f',
-                 uuid, tot, topic_id, datalen, prefix, build_time)
+                 uuid, tot, options.topic_id, datalen, prefix, build_time)
 
 
 def parse_opts():
@@ -248,11 +235,7 @@ def main():
                  options.msgsize, options.filename)
 
     # partition large message and find checksum
-    # splits = options.msgsize / options.chunksize
-    # if options.chunksize > 10240:
     splits = split(options.filename, options.chunksize)
-    # else:
-    #     logging.info('Splitting into memory because of large number of chunks')
     checksum = md5checksum(options.filename)
     logging.info('written split files: %s[%d] sum: %s',
                  options.filename, splits, checksum)
@@ -277,8 +260,7 @@ def main():
         # produce asynchronously for range with flush after each large message
         for _ in range(0, options.no_trials):
             send_message_chunks(options.filename, checksum,
-                                options.topic_id, producer,
-                                csvwriter, options)
+                                producer, csvwriter, options)
         csvfile.flush()
 
     logging.info('Finished - exiting.')
