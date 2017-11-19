@@ -1,0 +1,34 @@
+#!/usr/bin/env ansible-playbook
+---
+
+- name: "Apply the common role to cc nodes"
+  hosts:
+    - cc-nodes
+    - cc-client
+  become: yes
+  become_method: sudo
+  roles:
+    - common
+
+- name: "Show debug info"
+  hosts:
+    - cc-nodes
+    - cc-client
+  become: yes
+  tasks:
+    - name: "Show CC nodes info"
+      debug: var=hostvars[inventory_hostname]
+      when: debug
+
+- name: "Apply the cc role to the Kafka nodes"
+  hosts: cc-nodes
+  become: yes
+  roles:
+    - cc
+
+- name: "Setup client services"
+  hosts:
+    - cc-client
+  become: yes
+  roles:
+    - client

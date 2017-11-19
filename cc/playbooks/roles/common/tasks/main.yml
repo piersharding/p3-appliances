@@ -1,0 +1,14 @@
+---
+- name: Load variables
+  include_vars:
+    file: ../vars/default.yml
+
+- include: tasks/mount_filesystems.yml
+
+- include: tasks/dist_upgrade.yml
+
+- include: tasks/packages.yml
+
+- include: tasks/install_docker.yml
+
+- include: tasks/setup_rsyslog.yml
