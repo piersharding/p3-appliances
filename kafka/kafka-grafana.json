@@ -1,15 +1,55 @@
 {
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
+  "__requires": [
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "4.6.2"
+    },
+    {
+      "type": "panel",
+      "id": "graph",
+      "name": "Graph",
+      "version": ""
+    },
+    {
+      "type": "datasource",
+      "id": "prometheus",
+      "name": "Prometheus",
+      "version": "1.0.0"
+    }
+  ],
   "annotations": {
-    "list": []
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
   },
   "description": "Kafka resource usage and throughput",
   "editable": true,
   "gnetId": 721,
   "graphTooltip": 0,
   "hideControls": false,
-  "id": 3,
+  "id": null,
   "links": [],
-  "refresh": "5s",
+  "refresh": false,
   "rows": [
     {
       "collapse": false,
@@ -20,7 +60,9 @@
             "localhost:7071": "#629E51"
           },
           "bars": false,
-          "datasource": "Prometheus",
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "${DS_PROMETHEUS}",
           "editable": true,
           "error": false,
           "fill": 1,
@@ -44,6 +86,7 @@
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
+          "spaceLength": 10,
           "span": 4,
           "stack": false,
           "steppedLine": false,
@@ -69,6 +112,7 @@
           },
           "type": "graph",
           "xaxis": {
+            "buckets": null,
             "mode": "time",
             "name": null,
             "show": true,
@@ -98,7 +142,9 @@
             "localhost:7071": "#BA43A9"
           },
           "bars": false,
-          "datasource": "Prometheus",
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "${DS_PROMETHEUS}",
           "editable": true,
           "error": false,
           "fill": 1,
@@ -122,6 +168,7 @@
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
+          "spaceLength": 10,
           "span": 4,
           "stack": false,
           "steppedLine": false,
@@ -147,6 +194,7 @@
           },
           "type": "graph",
           "xaxis": {
+            "buckets": null,
             "mode": "time",
             "name": null,
             "show": true,
@@ -176,7 +224,9 @@
             "localhost:7071": "#890F02"
           },
           "bars": false,
-          "datasource": "Prometheus",
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "${DS_PROMETHEUS}",
           "editable": true,
           "error": false,
           "fill": 1,
@@ -200,6 +250,7 @@
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
+          "spaceLength": 10,
           "span": 4,
           "stack": false,
           "steppedLine": false,
@@ -225,6 +276,7 @@
           },
           "type": "graph",
           "xaxis": {
+            "buckets": null,
             "mode": "time",
             "name": null,
             "show": true,
@@ -264,7 +316,9 @@
         {
           "aliasColors": {},
           "bars": false,
-          "datasource": "Prometheus",
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "${DS_PROMETHEUS}",
           "editable": true,
           "error": false,
           "fill": 1,
@@ -288,6 +342,7 @@
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
+          "spaceLength": 10,
           "span": 4,
           "stack": false,
           "steppedLine": false,
@@ -313,6 +368,7 @@
           },
           "type": "graph",
           "xaxis": {
+            "buckets": null,
             "mode": "time",
             "name": null,
             "show": true,
@@ -340,7 +396,9 @@
         {
           "aliasColors": {},
           "bars": false,
-          "datasource": "Prometheus",
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "${DS_PROMETHEUS}",
           "editable": true,
           "error": false,
           "fill": 1,
@@ -364,6 +422,7 @@
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
+          "spaceLength": 10,
           "span": 4,
           "stack": false,
           "steppedLine": false,
@@ -389,6 +448,7 @@
           },
           "type": "graph",
           "xaxis": {
+            "buckets": null,
             "mode": "time",
             "name": null,
             "show": true,
@@ -416,7 +476,9 @@
         {
           "aliasColors": {},
           "bars": false,
-          "datasource": "Prometheus",
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "${DS_PROMETHEUS}",
           "editable": true,
           "error": false,
           "fill": 1,
@@ -440,6 +502,7 @@
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
+          "spaceLength": 10,
           "span": 4,
           "stack": false,
           "steppedLine": false,
@@ -465,6 +528,7 @@
           },
           "type": "graph",
           "xaxis": {
+            "buckets": null,
             "mode": "time",
             "name": null,
             "show": true,
@@ -504,7 +568,9 @@
         {
           "aliasColors": {},
           "bars": false,
-          "datasource": null,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "${DS_PROMETHEUS}",
           "fill": 1,
           "id": 8,
           "legend": {
@@ -525,19 +591,22 @@
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
+          "spaceLength": 10,
           "span": 6,
           "stack": false,
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum by (instance) (irate(node_network_receive_bytes{device=\"ens3\",job=\"kafka\"}[5m]))",
+              "expr": "sum by (instance) (irate(node_network_receive_bytes{device=\"em1\",job=\"kafka\"}[5m]))",
+              "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "received: {{instance}}",
               "refId": "A",
               "step": 2
             },
             {
-              "expr": "sum by (instance) (irate(node_network_transmit_bytes{device=\"ens3\",job=\"kafka\"}[5m]))",
+              "expr": "sum by (instance) (irate(node_network_transmit_bytes{device=\"em1\",job=\"kafka\"}[5m]))",
+              "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "transmitted: {{instance}}",
               "refId": "B",
@@ -555,6 +624,7 @@
           },
           "type": "graph",
           "xaxis": {
+            "buckets": null,
             "mode": "time",
             "name": null,
             "show": true,
@@ -582,7 +652,9 @@
         {
           "aliasColors": {},
           "bars": false,
-          "datasource": null,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "${DS_PROMETHEUS}",
           "fill": 1,
           "id": 9,
           "legend": {
@@ -603,19 +675,22 @@
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
+          "spaceLength": 10,
           "span": 6,
           "stack": false,
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum by (device, instance) (irate(node_disk_reads_completed{job=\"kafka\", device!=\"vda\"}[5m]))",
+              "expr": "sum by (device, instance) (irate(node_disk_reads_completed{job=\"kafka\", device!=\"sda\"}[5m]))",
+              "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "disk reads: {{instance}} / {{device}}",
               "refId": "A",
               "step": 2
             },
             {
-              "expr": "sum by (device, instance) (irate(node_disk_writes_completed{job=\"kafka\", device!=\"vda\"}[5m]))",
+              "expr": "sum by (device, instance) (irate(node_disk_writes_completed{job=\"kafka\", device!=\"sda\"}[5m]))",
+              "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "disk writes: {{instance}} / {{device}}",
               "refId": "B",
@@ -633,6 +708,7 @@
           },
           "type": "graph",
           "xaxis": {
+            "buckets": null,
             "mode": "time",
             "name": null,
             "show": true,
@@ -674,7 +750,9 @@
             "localhost:7071": "#BA43A9"
           },
           "bars": false,
-          "datasource": "Prometheus",
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "${DS_PROMETHEUS}",
           "editable": true,
           "error": false,
           "fill": 1,
@@ -698,6 +776,7 @@
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
+          "spaceLength": 10,
           "span": 6,
           "stack": false,
           "steppedLine": false,
@@ -737,6 +816,7 @@
           },
           "type": "graph",
           "xaxis": {
+            "buckets": null,
             "mode": "time",
             "name": null,
             "show": true,
@@ -766,7 +846,9 @@
             "localhost:7071": "#890F02"
           },
           "bars": false,
-          "datasource": "Prometheus",
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "${DS_PROMETHEUS}",
           "editable": true,
           "error": false,
           "fill": 1,
@@ -790,6 +872,7 @@
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
+          "spaceLength": 10,
           "span": 6,
           "stack": false,
           "steppedLine": false,
@@ -816,6 +899,7 @@
           },
           "type": "graph",
           "xaxis": {
+            "buckets": null,
             "mode": "time",
             "name": null,
             "show": true,
@@ -855,7 +939,7 @@
         {
           "aliasColors": {},
           "bars": false,
-          "datasource": null,
+          "datasource": "${DS_PROMETHEUS}",
           "fill": 1,
           "id": 7,
           "legend": {
@@ -960,8 +1044,8 @@
     "list": []
   },
   "time": {
-    "from": "now-15m",
-    "to": "now"
+    "from": "2017-11-18T05:22:12.452Z",
+    "to": "2017-11-18T05:36:53.587Z"
   },
   "timepicker": {
     "refresh_intervals": [
@@ -990,5 +1074,5 @@
   },
   "timezone": "browser",
   "title": "Kafka Overview",
-  "version": 7
+  "version": 3
 }

@@ -39,20 +39,40 @@
   file: path="{{ kafka_data_dir }}" state=directory owner={{ kafka_user }} group={{ kafka_group }}
   when: data_disks_devices is not defined or not data_disks_devices or data_disks_devices|length <= 0
 
+- name: kafka_vg VG
+  lvg:
+    vg: kafka_vg
+    pvs: /dev/sdb,/dev/sdc,/dev/sdd
+
+- name: Verify or create a striped LV
+  lvol:
+    lv: kafka_data
+    vg: kafka_vg
+    pvs: /dev/sdb,/dev/sdc,/dev/sdd
+    state: present
+    active: yes
+    shrink: no
+    opts: "-i 3 --stripesize 256"
+    size: "100%FREE"
+
 - name: Format kafka_data
   filesystem:
     fstype: xfs
-    dev: /dev/sdb
+    dev: /dev/mapper/kafka_vg-kafka_data
+
 
 - name: mount kafka_data
   mount:
     name: /var/lib/kafka-data
-    src: /dev/sdb
-    opts: defaults,noatime
+    src: /dev/mapper/kafka_vg-kafka_data
+    opts: defaults,noatime,nodiratime
     dump: 0
     passno: 0
     fstype: xfs
     state: mounted
+
+- name: Set permissions to Kafka data
+  file: path=/var/lib/kafka-data owner={{ kafka_user }} group={{ kafka_group }} recurse=yes
 
 # - name: Create /disk/{0..n}/kafka/data directories
 #   file: path="/disk/{{ item.0 + 1 }}/kafka/data" state=directory owner={{ kafka_user }} group={{ kafka_group }}
