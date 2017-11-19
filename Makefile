@@ -1,4 +1,6 @@
 LIMIT ?=
+DOCKER_USER := piers@catalyst.net.nz
+DOCKER_PASSWORD := secret
 
 all: build
 
@@ -9,7 +11,7 @@ add_common:
 	ansible-playbook -e @config/cc.yml -i ansible/inventory_cc ansible/cc.yml
 
 build_cc:
-	cd cc && ansible-playbook -i ../ansible/inventory_cc -i ./inventory $(LIMIT) playbooks/cc.yml
+	cd cc && ansible-playbook -i ../ansible/inventory_cc -i ./inventory $(LIMIT) playbooks/cc.yml --extra-vars="docker_user=$(DOCKER_USER) docker_password=$(DOCKER_PASSWORD)"
 
 check:
 	cd cc && ansible -i ../ansible/inventory_cc -i ./inventory --limit=cc-nodes all -b -m shell -a '/etc/init.d/cc-server status; /etc/init.d/zookeeper-server status; uptime'

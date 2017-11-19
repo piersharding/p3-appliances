@@ -147,12 +147,20 @@
   pip:
     name: docker-py
 
+- name: Log into private registry
+  docker_login:
+    registry: gitlab.catalyst.net.nz:4567
+    username: "{{ docker_user }}"
+    password: "{{ docker_password }}"
+
 - name: nodes remove containers
   docker_container:
     name: "{{ item }}"
     state: absent
   with_items:
     - nodeexporter
+    - cadvisor
+    - pexporter
 
 - name: docker pull images
   docker_image:
@@ -162,6 +170,10 @@
     state: present
   with_items:
     - name: prom/node-exporter
+      tag: latest
+    - name: google/cadvisor
+      tag: latest
+    - name: gitlab.catalyst.net.nz:4567/piers/process-exporter
       tag: latest
 
 - name: Restart a nodeexporter
@@ -178,3 +190,36 @@
       org.label-schema.group: monitoring
     ports:
       - "9100:9100"
+
+- name: Restart a cadvisor
+  docker_container:
+    name: cadvisor
+    restart_policy: always
+    image: "google/cadvisor:latest"
+    command: --port=8081
+    state: started
+    network_mode: host
+    labels:
+      org.label-schema.group: monitoring
+    volumes:
+     - "/:/rootfs:ro"
+     - "/var/run:/var/run:rw"
+     - "/sys:/sys:ro"
+     - "/var/lib/docker/:/var/lib/docker:ro"
+    ports:
+    - "8081:8080"
+
+- name: Restart a process-exporter
+  docker_container:
+    name: pexporter
+    restart_policy: always
+    image: "gitlab.catalyst.net.nz:4567/piers/process-exporter:latest"
+    command: "-procfs /host/proc -procnames dockerd,collectd,haveged,rsyslogd,metricbeat"
+    state: started
+    privileged: yes
+    labels:
+      org.label-schema.group: monitoring
+    volumes:
+     - "/proc:/host/proc"
+    ports:
+    - "9256:9256"
