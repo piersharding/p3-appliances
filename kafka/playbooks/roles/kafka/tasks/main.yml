@@ -52,7 +52,7 @@
     state: present
     active: yes
     shrink: no
-    opts: "-i 3 --stripesize 256"
+    opts: "-i 3 --stripesize 8"
     size: "100%FREE"
 
 - name: Format kafka_data

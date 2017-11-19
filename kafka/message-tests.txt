@@ -11,6 +11,9 @@
 ./kafka-consumer-perf-test.sh  --topic test256b  --zookeeper kafka-master-0:2181  --num-fetch-threads 10 --threads 10 --fetch-size 10485760 --reporting-interval 250000 --messages 100000000 --group test1 
 
 
+./kafka-producer-perf-test.sh --topic test100m --num-records 1000000000 --record-size 256 --throughput 1000000  --producer-props acks=-1 bootstrap.servers="kafka-master-0:9092,kafka-worker-0:9092,kafka-worker-1:9092" buffer.memory=20485760 batch.size=100000 max.request.size=10485760 &
+
+
 ubuntu@kafka-client-0:/opt/kafka/bin$ /opt/kafka/bin/kafka-topics.sh --delete --zookeeper kafka-worker-1:2181 --topic test256b
 Topic test256b is already marked for deletion.
 ubuntu@kafka-client-0:/opt/kafka/bin$ /opt/kafka/bin/kafka-topics.sh --list --zookeeper kafka-master-0:2181 
