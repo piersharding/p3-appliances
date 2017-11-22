@@ -14,10 +14,9 @@ build_cc:
 	cd cc && ansible-playbook -i ../ansible/inventory_cc -i ./inventory $(LIMIT) playbooks/cc.yml --extra-vars="docker_user=$(DOCKER_USER) docker_password=$(DOCKER_PASSWORD)"
 
 check:
-	cd cc && ansible -i ../ansible/inventory_cc -i ./inventory --limit=cc-nodes all -b -m shell -a '/etc/init.d/cc-server status; /etc/init.d/zookeeper-server status; uptime'
+	cd cc && ansible -i ../ansible/inventory_cc -i ./inventory --limit=cc-nodes all -b -m shell -a 'systemctl status docker; docker ps -a; uptime'
 
 build: build_hosts add_common build_cc
 
 reboot:
-	# cd cc && ansible -P 0 -B 10 -i ../ansible/inventory_cc -i ./inventory --limit=cc-nodes all -b -m shell -a  "echo 'reboot' | sudo at 'now + 0 minute'"
-	cd cc && ansible -P 0 -B 10 -i ../ansible/inventory_cc -i ./inventory --limit=cc-nodes all -b -m shell -a  "sudo reboot"
+	cd cc && ansible -P 0 -B 0 -i ../ansible/inventory_cc -i ./inventory --limit=cc-nodes all -b -m shell -a  "/usr/bin/sudo /sbin/reboot"

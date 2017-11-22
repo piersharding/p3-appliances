@@ -27,7 +27,7 @@
 
 - name: Set the host grouping
   set_fact:
-    host_grouping: "{% if inventory_hostname != groups['master'][0] %}master{% else %}worker{% endif %}"
+    host_grouping: "{% if inventory_hostname != groups['cc_node'][0] %}node{% else %}client{% endif %}"
 
 - name: Create /etc/systemd/system/docker.service.d
   file:
@@ -59,6 +59,7 @@
   - cc-shim
   notify:
     - Reload systemd
+    - Restart cc proxy.socket
     - Restart cc proxy
 
 
@@ -177,49 +178,79 @@
       tag: latest
 
 - name: Restart a nodeexporter
-  docker_container:
-    name: nodeexporter
-    restart_policy: always
-    image: "prom/node-exporter:latest"
-    state: started
-    network_mode: host
-    command: --collector.textfile.directory /textfiles
-    volumes:
-     - "/var/lib/node_exporter/textfile_collector:/textfiles:ro"
-    labels:
-      org.label-schema.group: monitoring
-    ports:
-      - "9100:9100"
+  command: "docker run --name nodeexporter --restart=always --runtime=runc --label org.label-schema.group=monitoring --publish 9100:9100 -v /var/lib/node_exporter/textfile_collector:/textfiles:ro -v /proc:/host/proc -v /sys:/host/sys -v /:/rootfs --net=host --pid=host -d prom/node-exporter:latest --collector.textfile.directory /textfiles --path.procfs /host/proc --path.sysfs /host/sys --collector.filesystem.ignored-mount-points \"^/(sys|proc|dev|host|etc|rootfs/var/lib/docker|rootfs/run/docker)($|/)\""
+
+
+# - name: Restart a nodeexporter
+#   docker_container:
+#     name: nodeexporter
+#     restart_policy: always
+#     image: "prom/node-exporter:latest"
+#     state: started
+#     network_mode: host
+#     pid_mode: host
+#     command: "--collector.textfile.directory /textfiles --path.procfs /host/proc --path.sysfs /host/sys --collector.filesystem.ignored-mount-points \"^/(sys|proc|dev|host|etc|rootfs/var/lib/docker|rootfs/run/docker)($|/)\""
+#     volumes:
+#      - "/var/lib/node_exporter/textfile_collector:/textfiles:ro"
+#      - "/proc:/host/proc"
+#      - "/sys:/host/sys"
+#      - "/:/rootfs"
+#      # - "/etc/node-exporter:/etc/node-exporter"
+#     labels:
+#       org.label-schema.group: monitoring
+#     ports:
+#       - "9100:9100"
+
 
 - name: Restart a cadvisor
-  docker_container:
-    name: cadvisor
-    restart_policy: always
-    image: "google/cadvisor:latest"
-    command: --port=8081
-    state: started
-    network_mode: host
-    labels:
-      org.label-schema.group: monitoring
-    volumes:
-     - "/:/rootfs:ro"
-     - "/var/run:/var/run:rw"
-     - "/sys:/sys:ro"
-     - "/var/lib/docker/:/var/lib/docker:ro"
-    ports:
-    - "8081:8080"
+  command: "docker run --name cadvisor --restart=always --runtime=runc --label org.label-schema.group=monitoring --publish 8081:8080 -v /:/rootfs:ro -v /var/run:/var/run:rw -v /sys:/sys:ro -v /var/lib/docker/:/var/lib/docker:ro --net=host -d google/cadvisor:latest -port 8081 -disable_metrics disk"
+
+# - name: Restart a cadvisor
+#   docker_container:
+#     name: cadvisor
+#     restart_policy: always
+#     image: "google/cadvisor:latest"
+#     command: -port 8081 -disable_metrics disk
+#     state: started
+#     network_mode: host
+#     labels:
+#       org.label-schema.group: monitoring
+#     volumes:
+#      - "/:/rootfs:ro"
+#      - "/var/run:/var/run:rw"
+#      - "/sys:/sys:ro"
+#      - "/var/lib/docker/:/var/lib/docker:ro"
+#     ports:
+#     - "8081:8080"
 
 - name: Restart a process-exporter
-  docker_container:
-    name: pexporter
-    restart_policy: always
-    image: "gitlab.catalyst.net.nz:4567/piers/process-exporter:latest"
-    command: "-procfs /host/proc -procnames dockerd,collectd,haveged,rsyslogd,metricbeat"
-    state: started
-    privileged: yes
-    labels:
-      org.label-schema.group: monitoring
-    volumes:
-     - "/proc:/host/proc"
-    ports:
-    - "9256:9256"
+  command: "docker run --name pexporter --restart=always --privileged --runtime=runc --label org.label-schema.group=monitoring --publish 9256:9256 -v /proc:/host/proc -d gitlab.catalyst.net.nz:4567/piers/process-exporter:latest -procfs /host/proc -procnames dockerd,rsyslogd,qemu-lite-system-x86_64,/usr/bin/qemu-lite-system-x86_64"
+
+# - name: Restart a process-exporter
+#   docker_container:
+#     name: pexporter
+#     restart_policy: always
+#     image: "gitlab.catalyst.net.nz:4567/piers/process-exporter:latest"
+#     command: "-procfs /host/proc -procnames dockerd,rsyslogd,qemu-lite-system-x86_64,/usr/bin/qemu-lite-system-x86_64"
+#     state: started
+#     privileged: yes
+#     labels:
+#       org.label-schema.group: monitoring
+#     volumes:
+#      - "/proc:/host/proc"
+#     ports:
+#     - "9256:9256"
+
+# just bruteforce swarm mode - we assume only one node here!!!!!!
+- name: Check if "Swarm Mode" is enabled.
+  shell: docker info
+  changed_when: False
+  register: docker_info
+  tags:
+    - skip_ansible_lint # Suppressing the linter
+
+- name: Init "Swarm Mode" on the first manager.
+  shell: docker swarm init
+  when: "docker_info.stdout.find('Swarm: active') == -1"
+  tags:
+    - skip_ansible_lint # Suppressing the linter

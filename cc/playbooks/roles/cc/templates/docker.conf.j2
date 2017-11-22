@@ -9,3 +9,5 @@ ExecStart=/usr/bin/dockerd -H unix:///var/run/docker.sock \
           --metrics-addr=0.0.0.0:9323 --insecure-registry=localhost:5000 \
           --insecure-registry={{ docker_repo }} \
           --add-runtime cc-runtime=/usr/bin/cc-runtime.sh
+
+#          --default-runtime=cc-runtime

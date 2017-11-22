@@ -386,7 +386,7 @@
     restart_policy: always
     image: prom/prometheus:latest
     # command: "--config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/prometheus-data --alertmanager.url=http://alertmanager-url:9093 --storage.local.memory-chunks=10000000"
-    command: "--config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/prometheus-data --alertmanager.url=http://alertmanager-url:9093  --web.listen-address="0.0.0.0:9090" "
+    command: "--config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/prometheus-data --web.listen-address=0.0.0.0:9090 "
     state: started
     labels:
       org.label-schema.group: monitoring

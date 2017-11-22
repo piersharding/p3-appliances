@@ -8,15 +8,15 @@
     - ca-certificates
     - "linux-image-extra-{{ ansible_kernel }}"
     - linux-image-extra-virtual
+    - aufs-tools
 
 - name: Add dockerproject apt key
   apt_key:
-    keyserver: ha.pool.sks-keyservers.net
-    id: 58118E89F3A912897C070ADBF76221572C52609D
+    url: https://download.docker.com/linux/ubuntu/gpg
 
 - name: Add dockerproject apt source
   lineinfile:
-    line: 'deb https://apt.dockerproject.org/repo ubuntu-xenial main'
+    line: 'deb [arch=amd64] https://download.docker.com/linux/ubuntu xenial stable'
     dest: /etc/apt/sources.list.d/docker.list
     create: yes
     owner: root
@@ -27,9 +27,9 @@
   apt:
     update_cache: yes
 
-- name: Install docker engine
+- name: Install docker ce
   apt:
-    name: docker-engine
+    name: docker-ce
     state: latest
   notify:
     - Start docker

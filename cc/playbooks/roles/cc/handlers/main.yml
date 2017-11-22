@@ -6,5 +6,8 @@
 - name: Restart docker
   service: name=docker enabled=yes state=restarted
 
-- name: Restart cc proxy
+- name: Restart cc proxy.socket
   service: name=cc-proxy.socket enabled=yes state=restarted
+
+- name: Restart cc proxy
+  service: name=cc-proxy enabled=yes state=restarted
