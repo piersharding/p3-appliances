@@ -224,14 +224,14 @@
 #     - "8081:8080"
 
 - name: Restart a process-exporter
-  command: "docker run --name pexporter --restart=always --privileged --runtime=runc --label org.label-schema.group=monitoring --publish 9256:9256 -v /proc:/host/proc -d gitlab.catalyst.net.nz:4567/piers/process-exporter:latest -procfs /host/proc -procnames dockerd,rsyslogd,qemu-lite-system-x86_64,/usr/bin/qemu-lite-system-x86_64"
+  command: "docker run --name pexporter --restart=always --privileged --runtime=runc --label org.label-schema.group=monitoring --publish 9256:9256 -v /proc:/host/proc -d gitlab.catalyst.net.nz:4567/piers/process-exporter:latest -procfs /host/proc -procnames dockerd,rsyslogd,qemu-lite-syste,ksmd,docker-containe,cc-shim"
 
 # - name: Restart a process-exporter
 #   docker_container:
 #     name: pexporter
 #     restart_policy: always
 #     image: "gitlab.catalyst.net.nz:4567/piers/process-exporter:latest"
-#     command: "-procfs /host/proc -procnames dockerd,rsyslogd,qemu-lite-system-x86_64,/usr/bin/qemu-lite-system-x86_64"
+#     command: "-procfs /host/proc -procnames dockerd,rsyslogd,qemu-lite-syste,ksmd,docker-containe,cc-shim"
 #     state: started
 #     privileged: yes
 #     labels:

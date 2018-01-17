@@ -4,6 +4,11 @@
     fstype: xfs
     dev: /dev/sdb
 
+- name: Ensure the /var/lib/docker directory mountpoint exists
+  file:
+    path: /var/lib/docker
+    state: directory
+
 - name: mount docker lib
   mount:
     name: /var/lib/docker
@@ -14,7 +19,23 @@
     fstype: xfs
     state: mounted
 
-- name: Ensure the /var/lib/docker directory mountpoint exists
+
+- name: Format test fs
+  filesystem:
+    fstype: xfs
+    dev: /dev/sdc
+
+- name: Ensure the /var/lib/testfs directory mountpoint exists
   file:
-    path: /var/lib/docker
+    path: /var/lib/testfs
     state: directory
+
+- name: mount test fs
+  mount:
+    name: /var/lib/testfs
+    src: /dev/sdc
+    opts: defaults,noatime
+    dump: 0
+    passno: 0
+    fstype: xfs
+    state: mounted
