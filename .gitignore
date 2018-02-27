@@ -17,3 +17,9 @@ p3venv
 *.csv
 *.Rproj
 .Rhistory
+*.retry
+
+ansible/group_vars/all
+config/shared.yml
+dcos/genconf
+shared/playbooks/tmp

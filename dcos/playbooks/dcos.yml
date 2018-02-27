@@ -1,0 +1,45 @@
+#!/usr/bin/env ansible-playbook
+---
+
+- name: "Apply the common role to shared nodes"
+  hosts:
+    - shared_services_controller
+    - shared_services_compute
+  become: yes
+  become_method: sudo
+  roles:
+    - common
+
+- name: "Show debug info"
+  hosts:
+    - shared_services_controller
+    - shared_services_compute
+  become: yes
+  tasks:
+    - name: "Show nodes info"
+      debug: var=hostvars[inventory_hostname]
+      when: debug
+
+- name: "Apply the shared role to the DCOS nodes"
+  hosts:
+    - shared_services_controller
+    - shared_services_compute
+  become: yes
+  roles:
+    - dcos
+
+- name: "Apply the shared role to the DCOS master"
+  hosts:
+    - shared_services_controller
+  become: yes
+  roles:
+    - master
+  tags:
+    - master
+
+- name: "Setup client services"
+  hosts:
+    - shared_services_controller
+  become: yes
+  roles:
+    - client

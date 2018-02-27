@@ -1,0 +1,43 @@
+
+- name: Format docker lib
+  filesystem:
+    fstype: xfs
+    force: yes
+    dev: /dev/sdb
+
+- name: Ensure the /var/lib/docker directory mountpoint exists
+  file:
+    path: /var/lib/docker
+    state: directory
+
+- name: mount docker lib
+  mount:
+    name: /var/lib/docker
+    src: /dev/sdb
+    opts: defaults,noatime
+    dump: 0
+    passno: 0
+    fstype: xfs
+    state: mounted
+
+
+- name: Format mesos fs
+  filesystem:
+    fstype: xfs
+    force: yes
+    dev: /dev/sdc
+
+- name: Ensure the /var/lib/mesos directory mountpoint exists
+  file:
+    path: /var/lib/mesos
+    state: directory
+
+- name: mount mesos fs
+  mount:
+    name: /var/lib/mesos
+    src: /dev/sdc
+    opts: defaults,noatime
+    dump: 0
+    passno: 0
+    fstype: xfs
+    state: mounted

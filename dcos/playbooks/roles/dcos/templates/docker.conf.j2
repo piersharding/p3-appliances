@@ -1,14 +1,10 @@
 [Service]
 MountFlags=shared
 ExecStart=
-# -H tcp://0.0.0.0:2375 
 ExecStart=/usr/bin/dockerd -H unix:///var/run/docker.sock \
           --log-driver=journald \
           --log-opt tag="img={{ '{{' }}.ImageName{{ '}}' }} name={{ '{{' }}.Name{{ '}}' }} cid={{ '{{' }}.ID{{ '}}' }}" \
           --log-opt labels="com.docker.swarm.service.name,com.docker.swarm.task.name" \
           --label nodetype={{ host_grouping }} --experimental=true \
           --metrics-addr=0.0.0.0:9323 --insecure-registry=localhost:5000 \
-          --insecure-registry={{ docker_repo }} \
-          --add-runtime cc-runtime=/usr/bin/cc-runtime.sh
-
-#          --default-runtime=cc-runtime
+          --insecure-registry={{ docker_repo }}

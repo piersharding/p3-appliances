@@ -21,8 +21,13 @@ packages:
   - apt-transport-https
   - ca-certificates
   - software-properties-common
+  - selinux-utils
+  - ipset
+  - ppp
+  - tmux
   - mdadm
   - dmraid
+  - jq
 
 update_grub: "/usr/sbin/update-grub"
 

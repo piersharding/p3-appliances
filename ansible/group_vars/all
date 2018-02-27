@@ -17,66 +17,66 @@ alaska_softiron: 10.4.99.101
 
 # List of cluster users, already defined in OpenStack
 alaska_users:
-  - name: "Chris Broekema"
-    user: chris
-    uid: 2001
-  - name: "Paul Browne"
-    user: paul
-    uid: 2002
+#  - name: "Chris Broekema"
+#    user: chris
+#    uid: 2001
+#  - name: "Paul Browne"
+#    user: paul
+#    uid: 2002
   - name: "Mark Goddard"
     user: mark
     uid: 2003
-  - name: "Vlad Stolyarov"
-    user: vlad
-    uid: 2004
+#  - name: "Vlad Stolyarov"
+#    user: vlad
+#    uid: 2004
   - name: "John Taylor"
     user: john
     uid: 2005
   - name: "Stig Telfer"
     user: stig
     uid: 2006
-  - name: "Ben Mort"
-    user: ben
-    uid: 2007
-  - name: "Fred Dulwich"
-    user: fred
-    uid: 2009
-  - name: "Alasdair King"
-    user: alasdair
-    uid: 2010
-  - name: "Verity Allan"
-    user: verity
-    uid: 2011
-  - name: "Nijin Thykkathu"
-    user: nijin
-    uid: 2012
-  - name: "James Kent"
-    user: james
-    uid: 2013
-  - name: "Tim Cornwell"
-    user: tim
-    uid: 2014
+#  - name: "Ben Mort"
+#    user: ben
+#    uid: 2007
+#  - name: "Fred Dulwich"
+#    user: fred
+#    uid: 2009
+#  - name: "Alasdair King"
+#    user: alasdair
+#    uid: 2010
+#  - name: "Verity Allan"
+#    user: verity
+#    uid: 2011
+#  - name: "Nijin Thykkathu"
+#    user: nijin
+#    uid: 2012
+#  - name: "James Kent"
+#    user: james
+#    uid: 2013
+#  - name: "Tim Cornwell"
+#    user: tim
+#    uid: 2014
   - name: "Piers Harding"
     user: piers
     uid: 2015
-  - name: "Arjen Tamerus"
-    user: arjen
-    uid: 2016
-  - name: "Bojan Nikolic"
-    user: bojan
-    uid: 2017
-  - name: "Brian"
-    user: brian
-    uid: 2018
-  - name: "Doug Szumski"
-    user: doug
-    uid: 2019
+#  - name: "Arjen Tamerus"
+#    user: arjen
+#    uid: 2016
+#  - name: "Bojan Nikolic"
+#    user: bojan
+#    uid: 2017
+#  - name: "Brian"
+#    user: brian
+#    uid: 2018
+#  - name: "Doug Szumski"
+#    user: doug
+#    uid: 2019
   - name: "John Garbutt"
     user: johng
     uid: 2020
-  - name: "Mark Boulton"
-    user: markb
-    uid: 2021
-  - name: "Markus Dolensky"
-    user: markus
-    uid: 2022
+#  - name: "Mark Boulton"
+#    user: markb
+#    uid: 2021
+#  - name: "Markus Dolensky"
+#    user: markus
+#    uid: 2022

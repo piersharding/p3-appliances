@@ -1,9 +1,8 @@
 [Service]
 MountFlags=shared
 ExecStart=
-# -H tcp://0.0.0.0:2375 
 ExecStart=/usr/bin/dockerd -H unix:///var/run/docker.sock \
-          --log-driver=journald \
+           --log-driver=journald \
           --log-opt tag="img={{ '{{' }}.ImageName{{ '}}' }} name={{ '{{' }}.Name{{ '}}' }} cid={{ '{{' }}.ID{{ '}}' }}" \
           --log-opt labels="com.docker.swarm.service.name,com.docker.swarm.task.name" \
           --label nodetype={{ host_grouping }} --experimental=true \

@@ -21,8 +21,6 @@ packages:
   - apt-transport-https
   - ca-certificates
   - software-properties-common
-  - mdadm
-  - dmraid
 
 update_grub: "/usr/sbin/update-grub"
 

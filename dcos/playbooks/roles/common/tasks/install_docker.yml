@@ -1,0 +1,80 @@
+
+- name: Install packages required for docker
+  apt:
+    name: "{{ item }}"
+    state: latest
+  with_items:
+    - apt-transport-https
+    - ca-certificates
+    - "linux-image-extra-{{ ansible_kernel }}"
+    - linux-image-extra-virtual
+    - aufs-tools
+
+- name: Add dockerproject apt key
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+
+- name: Add dockerproject apt source
+  lineinfile:
+    line: 'deb [arch=amd64] https://download.docker.com/linux/ubuntu xenial stable'
+    dest: /etc/apt/sources.list.d/docker.list
+    create: yes
+    owner: root
+    group: root
+    mode: 0644
+  register: installeddocker
+
+# - name: 'collect files in docker'
+#   find:
+#     paths: "/var/lib/docker/"
+#     hidden: True
+#     recurse: True
+#     # file_type: any  # Added in ansible 2.3
+#   register: collected_files
+#   when: installeddocker.changed
+
+# - name: 'collect directories in docker'
+#   find:
+#     paths: "/var/lib/docker/"
+#     hidden: True
+#     recurse: True
+#     file_type: directory
+#   register: collected_directories
+#   when: installeddocker.changed
+
+# - name: remove collected files and directories in docker
+#   file:
+#     path: "{{ item.path }}"
+#     state: absent
+#   with_items: >
+#     {{
+#       collected_files.files
+#       + collected_directories.files
+#     }}
+#   when: installeddocker.changed
+
+# Clean out /var/lib/docker because bare metal isn't purged 
+- name: remove files and directories in docker
+  shell: "rm -rf /var/lib/docker/* && touch /var/lib/docker/cleand_by_ansible"
+  args:
+    creates: /var/lib/docker/cleand_by_ansible
+  notify:
+    - Start docker
+#   when: installeddocker.changed
+
+- name: Update apt cache
+  apt:
+    update_cache: yes
+
+- name: Install docker ce
+  apt:
+    name: docker-ce
+    state: latest
+  notify:
+    - Start docker
+
+- name: Add ubuntu user to docker group
+  user:
+    name: ubuntu
+    append: yes
+    groups: docker

@@ -1,0 +1,247 @@
+---
+
+- name: Ensure required docker packages are installed (apt)
+  apt:
+    name: "{{ item }}"
+    update_cache: yes
+    state: installed
+  with_items:
+  - python-pip
+  - python3-pip
+
+
+- name: Set the host grouping
+  set_fact:
+    host_grouping: "{% if not inventory_hostname in groups['shared_services_compute'] %}compute{% else %}controller{% endif %}"
+
+- name: Create /etc/systemd/system/docker.service.d
+  file:
+    path: "/etc/systemd/system/docker.service.d"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Configure docker server
+  template: src=docker.conf.j2 dest="/etc/systemd/system/docker.service.d/docker.conf"
+  notify:
+    - Reload systemd
+    - Restart docker
+
+- meta: flush_handlers
+
+- name: download https://artifacts.elastic.co/downloads/beats/metricbeat/metricbeat-5.3.1-amd64.deb
+  get_url:
+    url: https://artifacts.elastic.co/downloads/beats/metricbeat/metricbeat-5.3.1-amd64.deb
+    dest: /var/tmp/metricbeat-5.3.1-amd64.deb
+
+- name: Install /var/tmp/metricbeat-5.3.1-amd64.deb package
+  apt:
+    deb: /var/tmp/metricbeat-5.3.1-amd64.deb
+  register: updatemetricbeat
+
+
+- name: link files
+  file:
+    src: "{{item}}"
+    dest: "/usr{{item}}"
+    state: link
+  with_items:
+    - /bin/mkdir
+    - /bin/ln
+    - /bin/tar
+    - /bin/rm
+
+
+- name: link file useradd
+  file:
+    src: /usr/sbin/useradd
+    dest: /sbin/useradd
+    state: link
+
+
+# curl -G --data-urlencode 'match[]={job=~".+"}' http://10.111.1.11:9090/federate
+# GET /federate?match[]=%7Bjob%3D~%22.%2B%22%7D HTTP/1.1
+
+# - name: /etc/metricbeat/metricbeat.yml
+#   copy:
+#     content: |-
+#       metricbeat.modules:
+#       - module: docker
+#         # metricsets: ["container", "cpu", "diskio", "healthcheck", "info", "memory", "network"]
+#         metricsets: ["container", "cpu", "diskio", "info", "memory", "network"]
+#         hosts: ["unix:///var/run/docker.sock"]
+#         enabled: true
+#         period: 10s
+
+#       - module: system
+#         metricsets:
+#           # CPU stats
+#           - cpu
+
+#           # System Load stats
+#           - load
+
+#           # Per CPU core stats
+#           - core
+
+#           # IO stats
+#           - diskio
+
+#           # Per filesystem stats
+#           - filesystem
+
+#           # File system summary stats
+#           - fsstat
+
+#           # Memory stats
+#           - memory
+
+#           # Network stats
+#           - network
+
+#           # Per process stats
+#           - process
+
+#           # Sockets (linux only)
+#           #- socket
+#         enabled: true
+#         period: 10s
+#         processes: ['.*']
+
+#       output.logstash:
+#         # The Logstash hosts
+#         hosts: ["{{ elastic_logstash1 }}:5044"]
+#         index: metrics
+
+#       logging.level: info
+
+#       logging.selectors: ["*"]
+
+#     force: yes
+#     dest: /etc/metricbeat/metricbeat.yml
+#   register: updatemetricbeat
+
+# - name: ensure metricbeat restarts
+#   service: name=metricbeat state=restarted enabled=yes
+#   when: updatemetricbeat.changed
+#   become: true
+
+
+
+- name: install docker dependencies
+  pip:
+    name: docker-py
+
+- name: Log into private registry
+  docker_login:
+    registry: gitlab.catalyst.net.nz:4567
+    username: "{{ docker_user }}"
+    password: "{{ docker_password }}"
+
+- name: nodes remove containers
+  docker_container:
+    name: "{{ item }}"
+    state: absent
+  with_items:
+    - nodeexporter
+    - cadvisor
+    - pexporter
+    - prometheus
+    - alertmanager
+    - grafana
+    - nginx
+
+- name: docker pull images
+  docker_image:
+    name: "{{ item.name }}"
+    tag: "{{ item.tag }}"
+    pull: true
+    state: present
+  with_items:
+    - name: prom/node-exporter
+      tag: latest
+    - name: google/cadvisor
+      tag: latest
+    - name: gitlab.catalyst.net.nz:4567/piers/process-exporter
+      tag: latest
+
+- name: Restart a nodeexporter
+  command: "docker run --name nodeexporter --restart=always --runtime=runc --label org.label-schema.group=monitoring --publish 9100:9100 -v /var/lib/node_exporter/textfile_collector:/textfiles:ro -v /proc:/host/proc -v /sys:/host/sys -v /:/rootfs --net=host --pid=host -d prom/node-exporter:latest --collector.textfile.directory /textfiles --path.procfs /host/proc --path.sysfs /host/sys --collector.filesystem.ignored-mount-points \"^/(sys|proc|dev|host|etc|rootfs/var/lib/docker|rootfs/run/docker)($|/)\""
+
+
+# - name: Restart a nodeexporter
+#   docker_container:
+#     name: nodeexporter
+#     restart_policy: always
+#     image: "prom/node-exporter:latest"
+#     state: started
+#     network_mode: host
+#     pid_mode: host
+#     command: "--collector.textfile.directory /textfiles --path.procfs /host/proc --path.sysfs /host/sys --collector.filesystem.ignored-mount-points \"^/(sys|proc|dev|host|etc|rootfs/var/lib/docker|rootfs/run/docker)($|/)\""
+#     volumes:
+#      - "/var/lib/node_exporter/textfile_collector:/textfiles:ro"
+#      - "/proc:/host/proc"
+#      - "/sys:/host/sys"
+#      - "/:/rootfs"
+#      # - "/etc/node-exporter:/etc/node-exporter"
+#     labels:
+#       org.label-schema.group: monitoring
+#     ports:
+#       - "9100:9100"
+
+
+- name: Restart a cadvisor
+  command: "docker run --name cadvisor --restart=always --runtime=runc --label org.label-schema.group=monitoring --publish 8081:8080 -v /:/rootfs:ro -v /var/run:/var/run:rw -v /sys:/sys:ro -v /var/lib/docker/:/var/lib/docker:ro --net=host -d google/cadvisor:latest -port 8081 -disable_metrics disk"
+
+# - name: Restart a cadvisor
+#   docker_container:
+#     name: cadvisor
+#     restart_policy: always
+#     image: "google/cadvisor:latest"
+#     command: -port 8081 -disable_metrics disk
+#     state: started
+#     network_mode: host
+#     labels:
+#       org.label-schema.group: monitoring
+#     volumes:
+#      - "/:/rootfs:ro"
+#      - "/var/run:/var/run:rw"
+#      - "/sys:/sys:ro"
+#      - "/var/lib/docker/:/var/lib/docker:ro"
+#     ports:
+#     - "8081:8080"
+
+- name: Restart a process-exporter
+  command: "docker run --name pexporter --restart=always --privileged --runtime=runc --label org.label-schema.group=monitoring --publish 9256:9256 -v /proc:/host/proc -d gitlab.catalyst.net.nz:4567/piers/process-exporter:latest -procfs /host/proc -procnames dockerd,rsyslogd,qemu-lite-syste,ksmd,docker-containe,cc-shim,mesos-agent,nginx,docker-proxy,dcos-log,dcos-metrics,dcos-diagnostic"
+
+
+
+# - name: Restart a process-exporter
+#   docker_container:
+#     name: pexporter
+#     restart_policy: always
+#     image: "gitlab.catalyst.net.nz:4567/piers/process-exporter:latest"
+#     command: "-procfs /host/proc -procnames dockerd,rsyslogd,qemu-lite-syste,ksmd,docker-containe,cc-shim"
+#     state: started
+#     privileged: yes
+#     labels:
+#       org.label-schema.group: monitoring
+#     volumes:
+#      - "/proc:/host/proc"
+#     ports:
+#     - "9256:9256"
+
+# just bruteforce swarm mode - we assume only one node here!!!!!!
+# - name: Check if "Swarm Mode" is enabled.
+#   shell: docker info
+#   changed_when: False
+#   register: docker_info
+#   tags:
+#     - skip_ansible_lint # Suppressing the linter
+
+# - name: Init "Swarm Mode" on the first manager.
+#   shell: docker swarm init
+#   when: "docker_info.stdout.find('Swarm: active') == -1"
+#   tags:
+#     - skip_ansible_lint # Suppressing the linter
