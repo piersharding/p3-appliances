@@ -19,14 +19,14 @@
       debug: var=groups["cluster"]
 
     - name: stop an instance
-      os_server_actions:
+      os_server_action:
         action: stop
         server: "{{ item }}"
         timeout: 200
       with_items: "{{ groups['cluster'] }}"
 
     - name: start an instance
-      os_server_actions:
+      os_server_action:
         action: start
         server: "{{ item }}"
         timeout: 200

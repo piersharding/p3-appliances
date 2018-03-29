@@ -26,7 +26,7 @@
     - shared_services_compute
   become: yes
   roles:
-    - dcos
+    - os
 
 - name: "Apply the shared role to the DCOS master"
   hosts:
@@ -42,4 +42,6 @@
     - shared_services_controller
   become: yes
   roles:
+    - client
+  tags:
     - client

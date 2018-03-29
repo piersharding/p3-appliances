@@ -53,6 +53,12 @@
 #     }}
 #   when: installeddocker.changed
 
+
+- name: Ensure the /var/lib/docker directory mountpoint exists
+  file:
+    path: /var/lib/docker
+    state: directory
+
 # Clean out /var/lib/docker because bare metal isn't purged 
 - name: remove files and directories in docker
   shell: "rm -rf /var/lib/docker/* && touch /var/lib/docker/cleand_by_ansible"

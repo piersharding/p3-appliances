@@ -1,4 +1,12 @@
 ---
+
+- name: "Retrieve project secret from Barbican - secret_name"
+  debug: var=secret_name
+
+- name: "Retrieve project secret from Barbican - secret_var"
+  debug: var=secret_var
+
+
 - name: Retrieve project secret from Barbican
   barbi:
     key: "{{ secret_name }}"

@@ -2,6 +2,7 @@
 packages:
   - default-jdk
   - python-simplejson
+  - python-setuptools
   - man-db
   - vim
   - sysstat
@@ -10,6 +11,7 @@ packages:
   - ntp
   - iotop
   - iperf
+  - iperf3
   - fio
   - gnuplot
   - unzip
@@ -23,6 +25,9 @@ packages:
   - software-properties-common
   - mdadm
   - dmraid
+  - linux-tools-common
+  - linux-tools-generic
+  - libjemalloc1
 
 update_grub: "/usr/sbin/update-grub"
 

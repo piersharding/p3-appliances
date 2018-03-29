@@ -8,6 +8,8 @@
   with_items:
   - python-pip
   - python3-pip
+  # - python-rados
+  # - python3-rados
 
 - name: set server id
   set_fact:
@@ -474,3 +476,132 @@
         GF_SECURITY_ADMIN_USER: admin
         GF_SECURITY_ADMIN_PASSWORD: changeme
         GF_USERS_ALLOW_SIGN_UP: "false"
+
+
+- name: /home/ubuntu/swift.conf
+  copy:
+    content: |-
+      [bench]
+      auth = http://{{ hostvars["shared_services-controller-0"].ansible_host }}:8080/auth/v1.0
+      user = benchmark:swift
+      key = guessme
+      auth_version = 1.0
+    force: yes
+    dest: /home/ubuntu/swift.conf
+    owner: ubuntu
+    group: ubuntu
+    mode: 0644
+
+
+- name: /home/ubuntu/pgs.sh
+  copy:
+    content: |-
+      #!/bin/sh
+
+      ceph pg dump | awk '
+      BEGIN { IGNORECASE = 1 }
+       /^PG_STAT/ { col=1; while($col!="UP") {col++}; col++ }
+       /^[0-9a-f]+\.[0-9a-f]+/ { match($0,/^[0-9a-f]+/); pool=substr($0, RSTART, RLENGTH); poollist[pool]=0;
+       up=$col; i=0; RSTART=0; RLENGTH=0; delete osds; while(match(up,/[0-9]+/)>0) { osds[++i]=substr(up,RSTART,RLENGTH); up = substr(up, RSTART+RLENGTH) }
+       for(i in osds) {array[osds[i],pool]++; osdlist[osds[i]];}
+      }
+      END {
+       printf("\n");
+       printf("pool :\t"); for (i in poollist) printf("%s\t",i); printf("| SUM \n");
+       for (i in poollist) printf("--------"); printf("----------------\n");
+       for (i in osdlist) { printf("osd.%i\t", i); sum=0;
+         for (j in poollist) { printf("%i\t", array[i,j]); sum+=array[i,j]; sumpool[j]+=array[i,j] }; printf("| %i\n",sum) }
+       for (i in poollist) printf("--------"); printf("----------------\n");
+       printf("SUM :\t"); for (i in poollist) printf("%s\t",sumpool[i]); printf("|\n");
+      }'
+    force: yes
+    dest: /home/ubuntu/pgs.sh
+    owner: ubuntu
+    group: ubuntu
+    mode: 0755
+
+
+- name: /home/ubuntu/default.conf
+  copy:
+    content: |-
+      server {
+          listen       80;
+          server_name  localhost;
+
+          location / {
+              root   /usr/share/nginx/html;
+              autoindex on;
+              #index  index.html index.htm;
+          }
+
+          error_page   500 502 503 504  /50x.html;
+          location = /50x.html {
+              root   /usr/share/nginx/html;
+          }
+      }
+    force: yes
+    dest: /home/ubuntu/default.conf
+    owner: ubuntu
+    group: ubuntu
+    mode: 0644
+
+- name: /home/ubuntu/rados_client.py
+  copy:
+    src: ../../../../../rados_client.py
+    force: yes
+    dest: /home/ubuntu/rados_client.py
+    owner: ubuntu
+    group: ubuntu
+    mode: 0755
+
+
+- name: clone ceph repo
+  git:
+    repo: 'git://github.com/piersharding/ceph'
+    dest: /home/ubuntu/ceph
+    version: luminous
+  become_user: ubuntu
+
+- name: Create build script /home/ubuntu/build_ceph.sh
+  copy:
+    content: |-
+      #!/bin/bash -x
+      set -e
+      cd /home/ubuntu/ceph
+      git submodule update --init --recursive
+      cd /home/ubuntu/ceph
+      #export DEBIAN_FRONTEND="noninteractive"
+      ./install-deps.sh
+      cd /home/ubuntu/ceph
+      ./make-debs.sh /var/tmp/release {{ local_repo_signing_key }}
+      cd /var/tmp/release/Ubuntu
+      sh ./load_repo.sh
+      
+      exit 0
+
+    force: yes
+    dest: /home/ubuntu/build_ceph.sh
+    owner: ubuntu
+    group: ubuntu
+    mode: 0755
+
+- name: checkout submodules
+  shell: cd /home/ubuntu/ceph && git submodule update --init --recursive
+  chdir: /home/ubuntu/ceph
+  become: false
+
+- name: install ceph dependencies
+  shell: |
+    cd /home/ubuntu/ceph
+    #export DEBIAN_FRONTEND="noninteractive"
+    /home/ubuntu/ceph/install-deps.sh
+    exit 0
+  args:
+    executable: /bin/bash
+  chdir: /home/ubuntu/ceph
+  become: false
+
+- name: make debian packages
+  shell: "cd /home/ubuntu/ceph && /home/ubuntu/ceph/make-debs.sh /var/tmp/release {{ local_repo_signing_key }}"
+  chdir: /home/ubuntu/ceph
+  become: false

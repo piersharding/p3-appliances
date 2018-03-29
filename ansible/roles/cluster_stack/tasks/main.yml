@@ -8,6 +8,7 @@
     template: "{{ cluster_template }}"
     parameters: "{{ cluster_params }}"
 
+
 - name: Write inventory file for new cluster
   template:
     src: cluster_inventory.j2

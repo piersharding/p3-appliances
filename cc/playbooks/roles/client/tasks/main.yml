@@ -543,20 +543,20 @@
 - name: Creates directory /var/lib/prometheus-data/alertmanager
   file: path=/var/lib/prometheus-data/alertmanager state=directory
 
-- name: Restart a Alert Manager
-  docker_container:
-    name: alertmanager
-    restart_policy: always
-    image: prom/alertmanager:latest
-    command: "-config.file=/etc/alertmanager/config.yml -storage.path=/alertmanager"
-    state: started
-    labels:
-      org.label-schema.group: monitoring
-    volumes:
-     - "/var/lib/prometheus-data/alertmanager:/alertmanager"
-     - "/etc/alertmanager:/etc/alertmanager"
-    ports:
-    - "9093:9093"
+# - name: Restart a Alert Manager
+#   docker_container:
+#     name: alertmanager
+#     restart_policy: always
+#     image: prom/alertmanager:latest
+#     command: "-config.file=/etc/alertmanager/config.yml -storage.path=/alertmanager"
+#     state: started
+#     labels:
+#       org.label-schema.group: monitoring
+#     volumes:
+#      - "/var/lib/prometheus-data/alertmanager:/alertmanager"
+#      - "/etc/alertmanager:/etc/alertmanager"
+#     ports:
+#     - "9093:9093"
 
 - name: Creates directory /var/lib/prometheus-data/grafana
   file: path=/var/lib/prometheus-data/grafana state=directory

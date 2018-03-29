@@ -12,4 +12,5 @@
         cluster_keypair: "{{ cluster_keypair }}"
         cluster_groups: "{{ cluster_groups }}"
         cluster_net: "{{ cluster_net }}"
+        secondary_net: "{{ secondary_net }}"
       cluster_roles: "{{ cluster_roles }}"

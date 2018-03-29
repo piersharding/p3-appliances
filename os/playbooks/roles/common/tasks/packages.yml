@@ -59,7 +59,8 @@
 - name: Disable Transparent Huge Pages in Grub 2
   lineinfile: dest=/etc/default/grub
               state=present
-              line='GRUB_CMDLINE_LINUX=$GRUB_CMDLINE_LINUX" transparent_hugepage=never intel_iommu=on iommu=pt"'
+              line='GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX transparent_hugepage=never"'
+              # line='GRUB_CMDLINE_LINUX=$GRUB_CMDLINE_LINUX" transparent_hugepage=never intel_iommu=on iommu=pt"'
   when: ansible_distribution_major_version|int > 6
   notify: Run update-grub
 
@@ -68,3 +69,32 @@
 - name: Disable Transparent Huge Pages until reboot
   shell: echo never > /sys/kernel/mm/transparent_hugepage/enabled && echo never > /sys/kernel/mm/transparent_hugepage/defrag
   ignore_errors: true
+
+# Ensure a locale exists.
+- locale_gen:
+    name: "{{ item }}"
+    state: present
+  with_items:
+  - en_US.UTF-8
+  - en_NZ.UTF-8
+
+- name: Add apt key for local repository
+  apt_key:
+    keyserver: keyserver.ubuntu.com
+    id: "{{ local_repo_signing_key }}"
+
+# DNS must resolve from hosts first
+- name: Configure dnsmasq
+  lineinfile:
+    path: /etc/dnsmasq.conf
+    line: "{{ item }}"
+    regexp: "^{{ item }}$"
+    create: no
+    state: present
+  with_items:
+    - "interface=lo"
+    - "listen-address=127.0.0.1"
+    - "bind-interfaces"
+  notify: restart dnsmasq
+
+- meta: flush_handlers

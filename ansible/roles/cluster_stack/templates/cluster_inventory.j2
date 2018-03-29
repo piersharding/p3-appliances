@@ -12,7 +12,7 @@
 {% for group_data in output.output_value %}
 [{{ cluster_stack.stack.stack_name}}_{{ group_data.group }}]
 {% for node_data in group_data.nodes %}
-{{node_data.name}} ansible_host={{ node_data.ip }}
+{{node_data.name}} ansible_host={{ node_data.ip }}{% if "secondary_ip" in node_data %} secondary_ip={{ node_data.secondary_ip }}{% endif %}
 {% endfor %}
 
 {% endfor %}

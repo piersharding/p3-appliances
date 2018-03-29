@@ -1,0 +1,45 @@
+#!/usr/bin/env ansible-playbook
+---
+
+- name: Setup Keys
+  hosts:
+    - shared_services_controller
+    - shared_services_compute
+  become: yes
+
+  # vars:
+  #   key_target: tmp
+
+  tasks:
+
+    - name: Destroy lvols
+      lvol:
+        lv: "{{ item.lv }}"
+        vg: "{{ item.vg }}"
+        state: absent
+        force: yes
+      with_items:
+        - lv: ceph_data1_1
+          vg: ceph_vg1
+        - lv: ceph_data1_2
+          vg: ceph_vg1
+        - lv: ceph_data2_1
+          vg: ceph_vg2
+        - lv: ceph_data2_2
+          vg: ceph_vg2
+        - lv: ceph_data3_1
+          vg: ceph_vg3
+        - lv: ceph_data3_2
+          vg: ceph_vg3
+
+
+    - name: Destroy ceph volume groups
+      lvg:
+        vg: "{{ item.vg }}"
+        state: absent
+        force: yes
+      with_items:
+        - vg: ceph_vg1
+        - vg: ceph_vg2
+        - vg: ceph_vg3
+

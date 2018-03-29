@@ -577,3 +577,11 @@
         GF_SECURITY_ADMIN_USER: admin
         GF_SECURITY_ADMIN_PASSWORD: changeme
         GF_USERS_ALLOW_SIGN_UP: "false"
+
+
+- name: install swift benchmarking tools
+  pip:
+    name: "{{ item }}"
+  with_items:
+  - swift
+  - swift-bench

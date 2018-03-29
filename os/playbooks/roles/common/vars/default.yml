@@ -10,6 +10,7 @@ packages:
   - ntp
   - iotop
   - iperf
+  - iperf3
   - fio
   - gnuplot
   - unzip
@@ -28,8 +29,32 @@ packages:
   - mdadm
   - dmraid
   - jq
+  - linux-tools-common
+  - linux-tools-generic
+  - libjemalloc1
+  - libjemalloc-dev
+  - reprepro
+  - expect
+  - dnsmasq
+  - rdmacm-utils
+  - build-essential 
+  - g++
+  - g++-5
+  - gperf
+  - icu-devtools
+  - libaio-dev
+  - libc-dev-bin
+  - libc6-dev:amd64
+  - libexpat1-dev:amd64
+  - libstdc++-5-dev:amd64
+  - libtool
+  - linux-libc-dev:amd64
+  # - python-rados
+  # - python3-rados
 
 update_grub: "/usr/sbin/update-grub"
 
 ntp_service: ntp
 ntp_sync: "/usr/sbin/ntpd -gq"
+
+local_repo_signing_key: x
