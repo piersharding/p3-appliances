@@ -1,124 +1,124 @@
 
-# - name: Build ceph volume groups
-#   lvg:
-#     vg: "{{ item.vg }}"
-#     pvs: "{{ item.pvs }}"
-#   with_items:
-#     - vg: ceph_vg1
-#       pvs: /dev/sdb
-#     - vg: ceph_vg2
-#       pvs: /dev/sdc
-#     - vg: ceph_vg3
-#       pvs: /dev/sdd
+- name: Build ceph volume groups
+  lvg:
+    vg: "{{ item.vg }}"
+    pvs: "{{ item.pvs }}"
+  with_items:
+    - vg: ceph_vg1
+      pvs: /dev/sdb
+    - vg: ceph_vg2
+      pvs: /dev/sdc
+    - vg: ceph_vg3
+      pvs: /dev/sdd
 
-# - name: Verify or create a striped LV1_1
-#   lvol:
-#     lv: "{{ item.lv }}"
-#     vg: "{{ item.vg }}"
-#     # pvs: /dev/sdb
-#     state: present
-#     active: yes
-#     shrink: no
-#     # opts: "-i 3 --stripesize 8"
-#     size: "{{ item.size }}"
-#   with_items:
-#     - lv: ceph_data1_1
-#       vg: ceph_vg1
-#       size: "50%FREE"
-#     - lv: ceph_data1_2
-#       vg: ceph_vg1
-#       size: "100%FREE"
-#     - lv: ceph_data2_1
-#       vg: ceph_vg2
-#       size: "50%FREE"
-#     - lv: ceph_data2_2
-#       vg: ceph_vg2
-#       size: "100%FREE"
-#     - lv: ceph_data3_1
-#       vg: ceph_vg3
-#       size: "50%FREE"
-#     - lv: ceph_data3_2
-#       vg: ceph_vg3
-#       size: "100%FREE"
-
-
-- name: umount data1 lib
-  mount:
-    name: /dev/sdb
-    state: unmounted
+- name: Verify or create a striped LV1_1
+  lvol:
+    lv: "{{ item.lv }}"
+    vg: "{{ item.vg }}"
+    # pvs: /dev/sdb
+    state: present
+    active: yes
+    shrink: no
+    # opts: "-i 3 --stripesize 8"
+    size: "{{ item.size }}"
+  with_items:
+    - lv: ceph_data1_1
+      vg: ceph_vg1
+      size: "50%FREE"
+    - lv: ceph_data1_2
+      vg: ceph_vg1
+      size: "100%FREE"
+    - lv: ceph_data2_1
+      vg: ceph_vg2
+      size: "50%FREE"
+    - lv: ceph_data2_2
+      vg: ceph_vg2
+      size: "100%FREE"
+    - lv: ceph_data3_1
+      vg: ceph_vg3
+      size: "50%FREE"
+    - lv: ceph_data3_2
+      vg: ceph_vg3
+      size: "100%FREE"
 
 
-# - name: Ensure the /var/lib/data1 directory mountpoint exists
-#   file:
-#     path: /var/lib/data1
-#     state: directory
-
-- name: Format data1 lib
-  filesystem:
-    fstype: xfs
-    force: yes
-    dev: /dev/sdb
-
-# - name: mount data1 lib
+# - name: umount data1 lib
 #   mount:
-#     name: /var/lib/data1
-#     src: /dev/sdb
-#     opts: defaults,noatime
-#     dump: 0
-#     passno: 0
+#     name: /dev/sdb
+#     state: unmounted
+
+
+# # - name: Ensure the /var/lib/data1 directory mountpoint exists
+# #   file:
+# #     path: /var/lib/data1
+# #     state: directory
+
+# - name: Format data1 lib
+#   filesystem:
 #     fstype: xfs
-#     state: mounted
+#     force: yes
+#     dev: /dev/sdb
+
+# # - name: mount data1 lib
+# #   mount:
+# #     name: /var/lib/data1
+# #     src: /dev/sdb
+# #     opts: defaults,noatime
+# #     dump: 0
+# #     passno: 0
+# #     fstype: xfs
+# #     state: mounted
 
 
-- name: umount data2 lib
-  mount:
-    name: /dev/sdc
-    state: unmounted
-
-- name: Format data2 fs
-  filesystem:
-    fstype: xfs
-    force: yes
-    dev: /dev/sdc
-
-# - name: Ensure the /var/lib/data2 directory mountpoint exists
-#   file:
-#     path: /var/lib/data2
-#     state: directory
-
-# - name: mount data2 fs
+# - name: umount data2 lib
 #   mount:
-#     name: /var/lib/data2
-#     src: /dev/sdc
-#     opts: defaults,noatime
-#     dump: 0
-#     passno: 0
+#     name: /dev/sdc
+#     state: unmounted
+
+# - name: Format data2 fs
+#   filesystem:
 #     fstype: xfs
-#     state: mounted
+#     force: yes
+#     dev: /dev/sdc
+
+# # - name: Ensure the /var/lib/data2 directory mountpoint exists
+# #   file:
+# #     path: /var/lib/data2
+# #     state: directory
+
+# # - name: mount data2 fs
+# #   mount:
+# #     name: /var/lib/data2
+# #     src: /dev/sdc
+# #     opts: defaults,noatime
+# #     dump: 0
+# #     passno: 0
+# #     fstype: xfs
+# #     state: mounted
 
 
-- name: umount data3 lib
-  mount:
-    name: /dev/sdd
-    state: unmounted
-
-- name: Format data3 fs
-  filesystem:
-    fstype: xfs
-    force: yes
-    dev: /dev/sdd
-
-# - name: Ensure the /var/lib/data3 directory mountpoint exists
-#   file:
-#     path: /var/lib/data3
-#     state: directory
-
-# - name: mount data3 fs
+# - name: umount data3 lib
 #   mount:
-#     name: /var/lib/data3
-#     src: /dev/sdd
-#     opts: defaults,noatime
-#     dump: 0
-#     passno: 0
+#     name: /dev/sdd
+#     state: unmounted
+
+# - name: Format data3 fs
+#   filesystem:
 #     fstype: xfs
-#     state: mounted
+#     force: yes
+#     dev: /dev/sdd
+
+# # - name: Ensure the /var/lib/data3 directory mountpoint exists
+# #   file:
+# #     path: /var/lib/data3
+# #     state: directory
+
+# # - name: mount data3 fs
+# #   mount:
+# #     name: /var/lib/data3
+# #     src: /dev/sdd
+# #     opts: defaults,noatime
+# #     dump: 0
+# #     passno: 0
+# #     fstype: xfs
+# #     state: mounted

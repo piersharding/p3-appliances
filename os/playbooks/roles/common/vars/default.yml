@@ -49,6 +49,14 @@ packages:
   - libstdc++-5-dev:amd64
   - libtool
   - linux-libc-dev:amd64
+  - libmlx5-1
+  - infiniband-diags
+  - ibutils
+  - ibverbs-utils
+  - rdmacm-utils
+  - perftest
+  - tgt
+  - targetcli
   # - python-rados
   # - python3-rados
 

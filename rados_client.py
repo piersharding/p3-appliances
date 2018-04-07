@@ -17,7 +17,6 @@ import signal
 import csv
 from collections import namedtuple
 # import hashlib
-#from kafka import KafkaConsumer
 from timeit import default_timer as timer
 
 XATTRS = {
@@ -47,13 +46,14 @@ def parse_opts():
     """
     options = {
         'ceph_conf': "/etc/ceph/ceph.conf",
-        'pool': "scbench",
-        'namespace': "ns1",
+        'pool': "testdata",
+        'namespace': LIBRADOS_ALL_NSPACES,
         'object_prefix': "rados_test_",
         'input_dir': "/tmp/rados_input",
         'output_dir': "/tmp/rados_output",
         'csv_file': '/tmp/rados_times.csv',
-        'buf': 1024 * 1024,
+        'buf': 1024 * 1024 * 1024, # 1GB
+        'limit': 10,
         'debug': False,
         'write': False,
         'read': False
@@ -61,7 +61,7 @@ def parse_opts():
 
     try:
         (opts, _) = getopt.getopt(sys.argv[1:],
-                                  'dnrwc:p:o:i:u:z:b:',
+                                  'dnrwc:p:o:i:u:z:b:l:',
                                   ["debug",
                                    # "nofiles",
                                    "ceph_conf=",
@@ -71,11 +71,12 @@ def parse_opts():
                                    "input_dir=",
                                    "output_dir=",
                                    "csv_file=",
-                                   "buf"])
+                                   "buf=",
+                                   "limit="])
     except getopt.GetoptError:
         print('rados_client.py [-d -r -w -c <ceph_conf> -p <pool> ' +
               '-n <namespace> -o <object_prefix> -b <buffer length>' +
-              '-i <input_dir> -u <output_dir> ' +
+              '-i <input_dir> -u <output_dir> -l <limit> ' +
               '-z <csv_file>]')
         sys.exit(2)
 
@@ -98,6 +99,8 @@ def parse_opts():
         options['csv_file'] = dopts['-z']
     if '-b' in dopts:
         options['buf'] = int(dopts['-b'])
+    if '-l' in dopts:
+        options['limit'] = int(dopts['-l'])
     if '-d' in dopts:
         options['debug'] = True
     if '-r' in dopts:
@@ -125,7 +128,7 @@ def purge_output_dir(output_dir):
 def read_in_chunks(f, chunk_size=1024*1024):
     """Lazy function (generator) to read a file piece by piece.
     Default chunk size: 1MB."""
-    f = open(f)
+    f = open(f, 'br')
     while True:
         data = f.read(chunk_size)
         if not data:
@@ -136,14 +139,14 @@ def read_in_chunks(f, chunk_size=1024*1024):
 def get_files(input_dir):
     """ walk directory for file names
     """
-    files = []
+    outfiles = []
     if os.path.exists(input_dir):
         for root, dirs, files in os.walk(input_dir, topdown=False):
             for name in files:
-                files.append(os.path.join(root, name))
+                outfiles.append(os.path.join(root, name))
     else:
         os.mkdir(input_dir)
-    return files
+    return outfiles
 
 # main
 def main():
@@ -162,8 +165,15 @@ def main():
     purge_output_dir(options.output_dir)
 
     cluster = rados.Rados(conffile=options.ceph_conf)
+
+    cluster.connect()
+    logging.info("Cluster ID: " + repr(cluster.get_fsid()))
+
+    cluster_stats = cluster.get_cluster_stats()
+    for key, value in cluster_stats.items():
+        logging.info("Cluster Statistics: %s => %s", key, value)
+    
     ioctx = cluster.open_ioctx(options.pool)
-    # ioctx.set_namespace(LIBRADOS_ALL_NSPACES)
     ioctx.set_namespace(options.namespace)
 
     logging.info('client connected to pool: %s ', options.pool)
@@ -196,21 +206,21 @@ def main():
 
             # find input files
             files = get_files(options.input_dir)
-            logging.info('files to send: %d', length(files))
+            logging.info('files to send: %d', len(files))
             for f in files:
                 # read file in chunks - default 1MB
                 # write to Ceph
                 offset = 0
-                key = options.object_prefix + os.path.basename(f)
+                key = options.object_prefix + os.path.basename(f).replace('__slash__', '/')
                 time_start = time.time()
-                for piece in read_in_chunks(f, buf):
+                for piece in read_in_chunks(f, options.buf):
                     logging.debug('writing object: %s of length: %d at offset: %d',
-                                  key, length(piece), offset)
+                                  key, len(piece), offset)
                     ioctx.write(key, piece, offset)
                     offset += options.buf
                 time_end = time.time()
                 for k, v in XATTRS.items():
-                    ioctx.set_xattr(key, k, v)
+                    ioctx.set_xattr(key, k, v.encode('utf-8'))
                 csvwriter.writerow(['w', key, f, offset, "%3.5f" % (time_end - time_start), repr(time_start), repr(time_end)])
                 csvfile.flush()
 
@@ -222,36 +232,46 @@ def main():
             logging.debug('pool stats: %s', repr(pool_stats))
 
             objects = ioctx.list_objects()
+            idx = 0
             while True:
                 try:
-                    rados_object = object_iterator.next()
-                    # print "Object contents = " + rados_object.read()
-                    logging.debug('object: %s', repr(rados_object))
-                    logging.debug('object stats: %s', repr(rados_object.stat()))
-                    logging.debug('object xattrs: %s', repr(rados_object.get_xattrs()))
-                    filename = os.path.join(options.output_dir, rados_object.key)
-                    offset = 0
+                    rados_object = next(objects)
+                    logging.debug('object key: %s', repr(rados_object.key))
+                    # logging.debug('object locator_key: %s', repr(rados_object.locator_key))
+                    # logging.debug('object: %s', repr(rados_object))
+                    # logging.debug('object stats: %s', repr(rados_object.stat()))
+                    logging.debug('object xattrs: %s', ", ".join(["%s => %s" % (k, v.decode('utf-8')) for k,v in rados_object.get_xattrs()]))
+                    # logging.debug('object dir: %s', repr(dir(rados_object)))
+                    # logging.debug('object: %s', ",".join(["%s => %s " % (k, v) for k,v in rados_object]))
+                    filename = os.path.join(options.output_dir, rados_object.key.replace('/', '__slash__'))
+                    # offset = 0
                     time_start = time.time()
                     with open(filename, 'wb') as fobj:
-                        while True:
-                            try:
-                                piece = rados_object.read(options.buf, offset)
-                                fobj.write(piece)
-                                offset += options.buf
-                            except:
-                                break
+                        try:
+                            fobj.write(rados_object.read(options.buf))
+                        except Exception as e:
+                            logging.debug('read error: %s', repr(e))
+                        # while True:
+                        #     try:
+                        #         piece = ioctx.read(rados_object.key, options.buf, offset)
+                        #         logging.debug('piece[%s]: %d', rados_object.key, len(piece))
+                        #         fobj.write(piece)
+                        #         offset += options.buf
+                        #     except Exception as e:
+                        #         logging.debug('read error: %s', repr(e))
+                        #         break
                     time_end = time.time()
                     csvwriter.writerow(['r', rados_object.key, filename, os.stat(filename).st_size , "%3.5f" % (time_end - time_start), repr(time_start), repr(time_end)])
                     csvfile.flush()
+                    idx += 1
+                    if idx >= options.limit:
+                        break
                 except StopIteration:
                     break
 
-    logging.info('Timeout - stopping ')
-
-
+    logging.info('Finished')
     ioctx.close()
     cluster.shutdown()
-
     sys.exit(0)
 
 

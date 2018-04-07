@@ -59,7 +59,7 @@
 - name: Disable Transparent Huge Pages in Grub 2
   lineinfile: dest=/etc/default/grub
               state=present
-              line='GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX transparent_hugepage=never"'
+              line='GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX transparent_hugepage=never numa=off"'
               # line='GRUB_CMDLINE_LINUX=$GRUB_CMDLINE_LINUX" transparent_hugepage=never intel_iommu=on iommu=pt"'
   when: ansible_distribution_major_version|int > 6
   notify: Run update-grub
@@ -96,5 +96,21 @@
     - "listen-address=127.0.0.1"
     - "bind-interfaces"
   notify: restart dnsmasq
+
+- name: Load Infiniband kernel drivers
+  modprobe:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - mlx5_core
+    - mlx5_ib
+    - ib_core
+    - ib_uverbs
+    - ib_ipoib
+    - rdma_cm
+    - rdma_ucm
+
+- name: Bring up the Infiniband interfaces
+  command: ifconfig ib0 up
 
 - meta: flush_handlers

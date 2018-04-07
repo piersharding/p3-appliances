@@ -605,3 +605,12 @@
   shell: "cd /home/ubuntu/ceph && /home/ubuntu/ceph/make-debs.sh /var/tmp/release {{ local_repo_signing_key }}"
   chdir: /home/ubuntu/ceph
   become: false
+
+# - name: Create interface using aggregate
+#   net_interface:
+#     name: p3p1
+#     speed: 25g
+#     duplex: full
+#     mtu: 9000
+#     enabled: True
+#     state: up

@@ -3,6 +3,10 @@ DOCKER_USER := piers@catalyst.net.nz
 DOCKER_PASSWORD := secret
 SIGNING_KEY := B81C8942C09FC231708FED9479C7D4D5AE8B8DAE
 
+
+# http://docs.ceph.com/ceph-ansible/master/
+# http://tracker.ceph.com/projects/ceph/wiki/Benchmark_Ceph_Cluster_Performance
+
 all: build
 
 build_hosts:
@@ -29,6 +33,10 @@ second_interface:
 set_iface:
 	cd os  && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a 'echo "auto p3p1\niface p3p1 inet dhcp\n    gateway 10.60.210.1" | tee /etc/network/interfaces.d/90-p3p1.cfg'
 
+fix_iface:
+	cd os && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a 'route del default gw 10.1.0.1 p3p1; route add default gw 10.60.210.1 em1; route -n'
+	cd os  && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a 'ip link set p3p1 up; ip link set p3p1 mtu 1500; ethtool -s p3p1 speed 25000 duplex full'
+
 check_os:
 	cd os && ansible -i ../ansible/inventory_shared_services -i ./inventory --limit=shared-nodes cluster -b -m shell -a 'systemctl status docker; docker ps -a; uptime'
 	cd os && ansible -i ../ansible/inventory_shared_services cluster -m shell -a "hostname -f; hostname -s; hostnamectl"
@@ -39,6 +47,16 @@ shared_ssh_keys:
 
 reboot:
 	cd shared && ansible-playbook -i ../ansible/inventory_shared_services playbooks/restart-hosts.yml
+
+set_perf:
+	cd os && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a 'cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; for CPUFREQ in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do [ -f $$CPUFREQ ] || continue; echo -n performance > $$CPUFREQ; done; cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor'
+	cd os && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a 'for i in a b c d ; do echo "8192" > /sys/block/sd$$i/queue/read_ahead_kb; echo "1024" > /sys/block/sd$$i/queue/nr_requests; echo 2 > /sys/block/sd$$i/queue/rq_affinity; echo "cfq" > /sys/block/sd$$i/queue/scheduler; cat /sys/block/sd$$i/queue/read_ahead_kb; done'
+
+fix: fix_iface set_perf
+
+# http://tracker.ceph.com/projects/ceph/wiki/Tuning_for_All_Flash_Deployments
+# https://xiaoquqi.github.io/blog/2015/06/28/ceph-performance-optimization-summary/
+# https://wiki.mikejung.biz/Ubuntu_Performance_Tuning#read_ahead_kb
 
 copy_fio_test:
 	cd os && ansible -i ../ansible/inventory_shared_services cluster -b -m copy -a "src=../fio_test.sh dest=/home/ubuntu/fio_test.sh owner=ubuntu group=ubuntu mode=0755"
@@ -58,10 +76,10 @@ copy_key:
 	cd os && ansible -i ../ansible/inventory_shared_services shared_services_controller -m copy -a "src=../repo-key.asc dest=/home/ubuntu/repo-key.asc owner=ubuntu group=ubuntu mode=0644"
 	cd os && ansible -i ../ansible/inventory_shared_services shared_services_controller -m shell -a 'gpg --import /home/ubuntu/repo-key.asc || true'
 
-# os: build_hosts add_common build_os set_iface shared_ssh_keys
-os: copy_key build_os shared_ssh_keys
+os: build_hosts add_common copy_key build_os set_iface shared_ssh_keys
+# os: copy_key build_os set_iface shared_ssh_keys
 
-iface: second_interface set_iface
+iface: second_interface set_iface fix_iface
 
 dnsmasq:
 	# cd os  && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a 'export DEBIAN_FRONTEND=noninteractive; apt install -y dnsmasq'
@@ -75,14 +93,11 @@ rados_client:
 # route del default gw 10.1.0.1 p3p1
 # route add default gw 10.60.210.1 em1
 
-fix_iface:
-	cd os && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a 'route del default gw 10.1.0.1 p3p1; route add default gw 10.60.210.1 em1; route -n'
-
 
 run_repo:
-	cd os && ansible -i ../ansible/inventory_shared_services shared_services_controller -m shell -a 'docker run -d --name nginx -p 88:80 -v /home/ubuntu/default.conf:/etc/nginx/conf.d/default.conf:ro -v /var/tmp/release/Ubuntu:/usr/share/nginx/html:ro nginx'
+	cd os && ansible -i ../ansible/inventory_shared_services shared_services_controller -m shell -a 'docker run -d --restart always --name nginx -p 88:80 -v /home/ubuntu/default.conf:/etc/nginx/conf.d/default.conf:ro -v /var/tmp/release/Ubuntu:/usr/share/nginx/html:ro nginx'
 	cd os && ansible -i ../ansible/inventory_shared_services shared_services_controller -m shell -a 'curl http://localhost:88'
-	cd os && ansible -i ../ansible/inventory_shared_services shared_services_controller -b -m shell -a 'export DEBIAN_FRONTEND=noninteractive; apt-get update; apt-get install -y python3-rados'
+	# cd os && ansible -i ../ansible/inventory_shared_services shared_services_controller -b -m shell -a 'export DEBIAN_FRONTEND=noninteractive; apt-get update; apt-get install -y python3-rados'
 
 tools:
 	cd os && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a 'export DEBIAN_FRONTEND=noninteractive; apt-get install -y linux-headers-generic; cd /tmp; rm -rf mft-4.9.0-38-x86_64-deb.tgz mft-4.9.0-38-x86_64-deb; wget -q http://www.mellanox.com/downloads/MFT/mft-4.9.0-38-x86_64-deb.tgz; tar -xzf mft-4.9.0-38-x86_64-deb.tgz; cd /tmp/mft-4.9.0-38-x86_64-deb/; ./install.sh; mst start'
@@ -118,9 +133,23 @@ purge_lvols:
 # os_ssh_key:
 # 	cd shared && ansible -i ../ansible/inventory_shared_services shared_services_controller -m copy -a "src=playbooks/tmp/id_rsa dest=/home/ubuntu/genconf/ssh_key"
 
+# find pools
+# for i in `rados lspools`; do  ceph osd pool application get $i; done
 
 ceph_test_setup:
-	cd os && ansible -i ../ansible/inventory_shared_services shared_services_controller -b -m shell -a 'ceph -s; ceph osd pool create scbench 256 256; ceph osd pool stats; ceph osd pool get scbench size'
+	cd os && ansible -i ../ansible/inventory_shared_services shared_services_controller -b -m shell -a 'ceph -s; ceph osd pool create scbench 256 256; ceph osd pool stats; ceph osd pool get scbench size; ceph osd pool application enable scbench librados'
+# ceph osd pool create scbench 256 256
+# ceph osd pool get scbench size
+# ceph osd pool rm scbench scbench --yes-i-really-really-mean-it
+
+# rados bench -p scbench 60 write --no-cleanup
+# -b block size
+# -o object size
+# -t concurrent ops
+
+ # rados bench -p scbench -t 16 -b 4M  30 write --no-cleanup | tee write.log
+ # rados bench -p scbench -t 16 -b 4M  30 seq | tee seq.log
+ # rados bench -p scbench -t 16 -b 4M  30 rand | tee seq.log
 
 # fixing leftover raid
 # cat /proc/mdstat 
