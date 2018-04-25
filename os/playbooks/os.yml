@@ -20,7 +20,7 @@
       debug: var=hostvars[inventory_hostname]
       when: debug
 
-- name: "Apply the shared role to the DCOS nodes"
+- name: "Apply the shared role to the Ceph nodes"
   hosts:
     - shared_services_controller
     - shared_services_compute
@@ -28,7 +28,7 @@
   roles:
     - os
 
-- name: "Apply the shared role to the DCOS master"
+- name: "Apply the shared role to the Ceph master"
   hosts:
     - shared_services_controller
   become: yes

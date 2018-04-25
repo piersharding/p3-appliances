@@ -1,6 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """ librados python client - test io
+    The basic idea of this simple command line client is to
+    test features of pools, namespaces, object keys, and xattrs
+    not performance testing.  There is further scope for
+    that in the asynchronous IO librados API.
+
+    Inputs: directory of files for upload as objects
+    Outputs: directory for export of objects
+             CSV of runtime stats
+
+    Example:
+    # read from pool scbench limit 10 objects
+    ./rados_client.py -p scbench -l 10 -r
 """
 
 import time
@@ -9,19 +21,17 @@ import getopt
 import os
 import os.path
 import sys
-import glob
 import logging
+import csv
+import uuid
+from collections import namedtuple
+import signal
 import rados
 from rados import LIBRADOS_ALL_NSPACES
-import signal
-import csv
-from collections import namedtuple
-# import hashlib
-from timeit import default_timer as timer
 
 XATTRS = {
-        'author': 'Piers Harding',
-        'date': datetime.datetime.now().strftime("%I:%M%p on %B %d, %Y"),
+    'author': 'Piers Harding',
+    'date': datetime.datetime.now().strftime("%I:%M%p on %B %d, %Y")
     }
 
 
@@ -63,7 +73,6 @@ def parse_opts():
         (opts, _) = getopt.getopt(sys.argv[1:],
                                   'dnrwc:p:o:i:u:z:b:l:',
                                   ["debug",
-                                   # "nofiles",
                                    "ceph_conf=",
                                    "pool=",
                                    "namespace=",
@@ -125,12 +134,12 @@ def purge_output_dir(output_dir):
     else:
         os.mkdir(output_dir)
 
-def read_in_chunks(f, chunk_size=1024*1024):
+def read_in_chunks(filename, chunk_size=1024*1024):
     """Lazy function (generator) to read a file piece by piece.
     Default chunk size: 1MB."""
-    f = open(f, 'br')
+    fl = open(filename, 'br')
     while True:
-        data = f.read(chunk_size)
+        data = fl.read(chunk_size)
         if not data:
             break
         yield data
@@ -141,7 +150,7 @@ def get_files(input_dir):
     """
     outfiles = []
     if os.path.exists(input_dir):
-        for root, dirs, files in os.walk(input_dir, topdown=False):
+        for root, _, files in os.walk(input_dir, topdown=False):
             for name in files:
                 outfiles.append(os.path.join(root, name))
     else:
@@ -164,15 +173,17 @@ def main():
 
     purge_output_dir(options.output_dir)
 
+    # connect up to out cluster - the etc file
+    # specifies everything including keys
     cluster = rados.Rados(conffile=options.ceph_conf)
-
     cluster.connect()
-    logging.info("Cluster ID: " + repr(cluster.get_fsid()))
+    logging.info("Cluster ID: %s", repr(cluster.get_fsid()))
 
     cluster_stats = cluster.get_cluster_stats()
     for key, value in cluster_stats.items():
         logging.info("Cluster Statistics: %s => %s", key, value)
-    
+
+    # select our pool and set the namespace for operation
     ioctx = cluster.open_ioctx(options.pool)
     ioctx.set_namespace(options.namespace)
 
@@ -189,10 +200,6 @@ def main():
 
     signal.signal(signal.SIGINT, signal_handler)
 
-    # record batches - once all segments are retrieved then reconstruct
-    #   the entire message and apply the checksum
-    batches = {}
-
     # write timing results out to a CSV file
     with open(options.csv_file, 'w', newline='') as csvfile:
         csvwriter = csv.writer(csvfile, delimiter=',',
@@ -207,62 +214,60 @@ def main():
             # find input files
             files = get_files(options.input_dir)
             logging.info('files to send: %d', len(files))
-            for f in files:
-                # read file in chunks - default 1MB
-                # write to Ceph
+            for filename in files:
+                # read file in chunks - default 1GB
+                # write to Ceph in buffered chunks
                 offset = 0
-                key = options.object_prefix + os.path.basename(f).replace('__slash__', '/')
+                key = options.object_prefix + os.path.basename(filename).replace('__slash__', '/')
                 time_start = time.time()
-                for piece in read_in_chunks(f, options.buf):
+                for piece in read_in_chunks(filename, options.buf):
                     logging.debug('writing object: %s of length: %d at offset: %d',
                                   key, len(piece), offset)
                     ioctx.write(key, piece, offset)
                     offset += options.buf
                 time_end = time.time()
-                for k, v in XATTRS.items():
-                    ioctx.set_xattr(key, k, v.encode('utf-8'))
-                csvwriter.writerow(['w', key, f, offset, "%3.5f" % (time_end - time_start), repr(time_start), repr(time_end)])
+                for k, val in {**XATTRS, **{'jobid': str(uuid.uuid1())}}.items():
+                    ioctx.set_xattr(key, k, val.encode('utf-8'))
+                csvwriter.writerow(['w', key, filename, offset,
+                                    "%3.5f" % (time_end - time_start),
+                                    repr(time_start), repr(time_end)])
                 csvfile.flush()
 
         # if we are reading objects from storage
         if options.read:
 
             # find object list
+            objects = ioctx.list_objects()
+
+            # pool statistics
             pool_stats = ioctx.get_stats()
             logging.debug('pool stats: %s', repr(pool_stats))
-
-            objects = ioctx.list_objects()
             idx = 0
             while True:
                 try:
                     rados_object = next(objects)
                     logging.debug('object key: %s', repr(rados_object.key))
-                    # logging.debug('object locator_key: %s', repr(rados_object.locator_key))
-                    # logging.debug('object: %s', repr(rados_object))
-                    # logging.debug('object stats: %s', repr(rados_object.stat()))
-                    logging.debug('object xattrs: %s', ", ".join(["%s => %s" % (k, v.decode('utf-8')) for k,v in rados_object.get_xattrs()]))
-                    # logging.debug('object dir: %s', repr(dir(rados_object)))
-                    # logging.debug('object: %s', ",".join(["%s => %s " % (k, v) for k,v in rados_object]))
-                    filename = os.path.join(options.output_dir, rados_object.key.replace('/', '__slash__'))
-                    # offset = 0
+                    logging.debug('object xattrs: %s',
+                                  ", ".join(["%s => %s" % (k, v.decode('utf-8'))
+                                             for k, v in rados_object.get_xattrs()]))
+                    filename = os.path.join(options.output_dir,
+                                            rados_object.key.replace('/', '__slash__'))
                     time_start = time.time()
+                    # read objects as a single chunk - this needs to be
+                    # fixed as reading should be in pieces
                     with open(filename, 'wb') as fobj:
                         try:
                             fobj.write(rados_object.read(options.buf))
-                        except Exception as e:
-                            logging.debug('read error: %s', repr(e))
-                        # while True:
-                        #     try:
-                        #         piece = ioctx.read(rados_object.key, options.buf, offset)
-                        #         logging.debug('piece[%s]: %d', rados_object.key, len(piece))
-                        #         fobj.write(piece)
-                        #         offset += options.buf
-                        #     except Exception as e:
-                        #         logging.debug('read error: %s', repr(e))
-                        #         break
+                        except Exception as ex:
+                            logging.debug('read error: %s', repr(ex))
                     time_end = time.time()
-                    csvwriter.writerow(['r', rados_object.key, filename, os.stat(filename).st_size , "%3.5f" % (time_end - time_start), repr(time_start), repr(time_end)])
+                    csvwriter.writerow(['r', rados_object.key, filename,
+                                        os.stat(filename).st_size,
+                                        "%3.5f" % (time_end - time_start),
+                                        repr(time_start), repr(time_end)])
                     csvfile.flush()
+
+                    # read up to n objects
                     idx += 1
                     if idx >= options.limit:
                         break

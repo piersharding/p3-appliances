@@ -568,7 +568,7 @@
       "datasource": "Prometheus",
       "fill": 1,
       "gridPos": {
-        "h": 9,
+        "h": 11,
         "w": 21,
         "x": 0,
         "y": 15
@@ -655,7 +655,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 24
+        "y": 26
       },
       "id": 29,
       "panels": [],
@@ -679,7 +679,7 @@
         "h": 7,
         "w": 8,
         "x": 0,
-        "y": 25
+        "y": 27
       },
       "id": 10,
       "legend": {
@@ -782,7 +782,7 @@
         "h": 7,
         "w": 8,
         "x": 8,
-        "y": 25
+        "y": 27
       },
       "height": "250",
       "id": 26,
@@ -872,7 +872,7 @@
         "h": 7,
         "w": 7,
         "x": 16,
-        "y": 25
+        "y": 27
       },
       "id": 40,
       "legend": {
@@ -898,14 +898,14 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum by (instance) (irate(node_network_receive_bytes{device=\"em2\",job=\"nodeexporter\"}[5m]))",
+          "expr": "sum by (instance) (irate(node_network_receive_bytes{device=\"p3p1\",job=\"nodeexporter\"}[5m]))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "received: {{instance}}",
           "refId": "C"
         },
         {
-          "expr": "sum by (instance) (irate(node_network_transmit_bytes{device=\"em2\",job=\"nodeexporter\"}[5m]))",
+          "expr": "sum by (instance) (irate(node_network_transmit_bytes{device=\"p3p1\",job=\"nodeexporter\"}[5m]))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "transmitted: {{instance}}",
@@ -915,7 +915,7 @@
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Network em2",
+      "title": "Network p3p1",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -964,7 +964,7 @@
         "h": 7,
         "w": 9,
         "x": 0,
-        "y": 32
+        "y": 34
       },
       "id": 11,
       "legend": {
@@ -1038,12 +1038,99 @@
       ]
     },
     {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "fill": 1,
+      "gridPos": {
+        "h": 7,
+        "w": 7,
+        "x": 16,
+        "y": 34
+      },
+      "id": 41,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "sum by (instance) (irate(node_network_receive_bytes{device=\"ib0\",job=\"nodeexporter\"}[5m]))",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "received: {{instance}}",
+          "refId": "C"
+        },
+        {
+          "expr": "sum by (instance) (irate(node_network_transmit_bytes{device=\"ib0\",job=\"nodeexporter\"}[5m]))",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "transmitted: {{instance}}",
+          "refId": "D"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Network ib0",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "Bps",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "Bps",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ]
+    },
+    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 39
+        "y": 41
       },
       "id": 39,
       "panels": [],
@@ -1059,8 +1146,8 @@
     "list": []
   },
   "time": {
-    "from": "2018-03-11T21:49:18.838Z",
-    "to": "2018-03-11T21:56:53.274Z"
+    "from": "2018-04-24T16:24:24.772Z",
+    "to": "2018-04-24T16:54:31.646Z"
   },
   "timepicker": {
     "refresh_intervals": [
@@ -1090,5 +1177,5 @@
   "timezone": "browser",
   "title": "Ceph Overview",
   "uid": "T_kw1eqkz",
-  "version": 2
+  "version": 5
 }

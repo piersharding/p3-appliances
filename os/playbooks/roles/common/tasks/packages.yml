@@ -113,4 +113,45 @@
 - name: Bring up the Infiniband interfaces
   command: ifconfig ib0 up
 
+- name: activate p3p1 interface
+  copy: content="auto p3p1\niface p3p1 inet static\n    address {{ secondary_ip }}\n    netmask 255.255.255.0\n    broadcast 10.1.0.255\n    gateway 10.60.210.1" force=yes dest=/etc/network/interfaces.d/p3p1.cfg
+
+# - name: activate ib0 interface
+#   copy: content="auto ib0\niface ib0 inet static\n    address {{ ib_ip }}\n    netmask 255.255.255.0\n    broadcast 10.1.99.255\n    gateway 10.60.210.1" force=yes dest=/etc/network/interfaces.d/ib0.cfg
+
+
+- name: activate ib0 interface
+  blockinfile:
+    dest: "/etc/rc.local"
+    insertbefore: "exit 0"
+    block: |
+      for i in mlx5_core mlx5_ib ib_core ib_uverbs ib_ipoib rdma_cm rdma_ucm; do modprobe $i; done
+      ifconfig ib0 up
+      ifconfig ib0 {{ ib_ip }} netmask 255.255.255.0
+    marker: "# {mark} ANSIBLE MANAGED BLOCK for ib0"
+
+
+# for i in mlx5_core mlx5_ib ib_core ib_uverbs ib_ipoib rdma_cm rdma_ucm; do modprobe $i; done
+# ifconfig ib0 up
+# ifconfig ib0 10.1.99.10 netmask 255.255.255.0
+
+
+# "auto p3p1\niface p3p1 inet dhcp\n    gateway 10.60.210.1"
+# auto eth0
+# iface eth0 inet static
+#     address 10.0.0.41
+#     netmask 255.255.255.0
+#     network 10.0.0.0
+#     broadcast 10.0.0.255
+#     gateway 10.0.0.1
+
+# - name: Create interface using aggregate
+#   net_interface:
+#     name: p3p1
+#     speed: 25g
+#     duplex: full
+#     mtu: 9000
+#     enabled: True
+#     state: up
+
 - meta: flush_handlers

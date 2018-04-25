@@ -35,7 +35,13 @@ set_iface:
 
 fix_iface:
 	cd os && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a 'route del default gw 10.1.0.1 p3p1; route add default gw 10.60.210.1 em1; route -n'
-	cd os  && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a 'ip link set p3p1 up; ip link set p3p1 mtu 1500; ethtool -s p3p1 speed 25000 duplex full'
+	# cd os  && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a 'ip link set p3p1 up; ip link set p3p1 mtu 1500; ethtool -s p3p1 speed 25000 duplex full'
+	cd os  && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a 'ip link set p3p1 up; ip link set p3p1 mtu 9000; ethtool -s p3p1 speed 25000 duplex full; ibv_devinfo p3p1'
+
+# for i in mlx5_core mlx5_ib ib_core ib_uverbs ib_ipoib rdma_cm rdma_ucm; do modprobe $i; done
+# ifdown ib0
+# ifup ib0
+
 
 check_os:
 	cd os && ansible -i ../ansible/inventory_shared_services -i ./inventory --limit=shared-nodes cluster -b -m shell -a 'systemctl status docker; docker ps -a; uptime'
@@ -48,9 +54,27 @@ shared_ssh_keys:
 reboot:
 	cd shared && ansible-playbook -i ../ansible/inventory_shared_services playbooks/restart-hosts.yml
 
+# https://accelazh.github.io/ceph/Ceph-Performance-Tuning-Checklist
+# https://xiaoquqi.github.io/blog/2015/06/28/ceph-performance-optimization-summary/
 set_perf:
 	cd os && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a 'cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; for CPUFREQ in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do [ -f $$CPUFREQ ] || continue; echo -n performance > $$CPUFREQ; done; cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor'
 	cd os && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a 'for i in a b c d ; do echo "8192" > /sys/block/sd$$i/queue/read_ahead_kb; echo "1024" > /sys/block/sd$$i/queue/nr_requests; echo 2 > /sys/block/sd$$i/queue/rq_affinity; echo "cfq" > /sys/block/sd$$i/queue/scheduler; cat /sys/block/sd$$i/queue/read_ahead_kb; done'
+
+# sudo route del default gw 10.60.210.1 dev p3p1
+# sudo route del -net 10.0.0.0 netmask 255.0.0.0 gw 0.0.0.0 dev ib0
+
+# cat /sys/class/net/ib0/mode
+# sudo echo "connected" > /sys/class/net/ib0/mode
+# cat /sys/class/net/ib0/mode
+# sudo ifconfig ib0 mtu 65520
+
+create_ramdisks:
+	# modprobe brd rd_nr=2 rd_size=2097152 max_part=0; mkfs.ext4 /dev/ram0; mkfs.ext4 /dev/ram1
+	cd os && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a 'modprobe brd rd_nr=6 rd_size=2097152 max_part=0'
+
+remove_ramdisks:
+	cd os && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a 'rmmod brd || true'
+
 
 fix: fix_iface set_perf
 
@@ -109,6 +133,9 @@ set_mellanox:
 	cd os && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a 'mlxconfig -y -d /dev/mst/mt4115_pciconf0 set LINK_TYPE_P1=1 LINK_TYPE_P2=2 '
 
 
+create_lvols:
+	cd shared && ansible-playbook -i ../ansible/inventory_shared_services playbooks/create-lvols.yml
+
 purge_lvols:
 	cd shared && ansible-playbook -i ../ansible/inventory_shared_services playbooks/purge-vols.yml
 
@@ -129,6 +156,8 @@ purge_lvols:
 
 # Config IPoIB
 # https://community.mellanox.com/docs/DOC-2294
+# https://www.servethehome.com/configure-ipoib-mellanox-hcas-ubuntu-12041-lts/
+# https://wiki.archlinux.org/index.php/InfiniBand#Over_IPoIB
 
 # os_ssh_key:
 # 	cd shared && ansible -i ../ansible/inventory_shared_services shared_services_controller -m copy -a "src=playbooks/tmp/id_rsa dest=/home/ubuntu/genconf/ssh_key"
@@ -136,20 +165,49 @@ purge_lvols:
 # find pools
 # for i in `rados lspools`; do  ceph osd pool application get $i; done
 
+# http://tracker.ceph.com/projects/ceph/wiki/Benchmark_Ceph_Cluster_Performance
+
 ceph_test_setup:
 	cd os && ansible -i ../ansible/inventory_shared_services shared_services_controller -b -m shell -a 'ceph -s; ceph osd pool create scbench 256 256; ceph osd pool stats; ceph osd pool get scbench size; ceph osd pool application enable scbench librados'
 # ceph osd pool create scbench 256 256
 # ceph osd pool get scbench size
 # ceph osd pool rm scbench scbench --yes-i-really-really-mean-it
 
-# rados bench -p scbench 60 write --no-cleanup
+ceph_test_teardown:
+	cd os && ansible -i ../ansible/inventory_shared_services shared_services_controller -b -m shell -a 'ceph -s; ceph osd pool rm scbench scbench --yes-i-really-really-mean-it'
+
+ceph_run_write_test:
+	DTE=`date | sed -e 's/  /\_/g' | sed -e 's/ /\_/g'` && \
+	cd os; \
+	for i in 1 2 3; do DTE=`date | sed -e 's/  /\_/g' | sed -e 's/ /\_/g'`; \
+	echo radosbench-write-run$${i}-$${DTE}; \
+	ansible -i ../ansible/inventory_shared_services shared_services_controller -b -m shell -a "rados bench --show-time -p scbench 180 write --no-cleanup | tee > radosbench-write-run$${i}-$${DTE}"; \
+	done
+
+ceph_run_seq_test:
+	DTE=`date | sed -e 's/  /\_/g' | sed -e 's/ /\_/g'` && \
+	cd os; \
+	for i in 1 2 3; do DTE=`date | sed -e 's/  /\_/g' | sed -e 's/ /\_/g'`; \
+	echo radosbench-seq-run$${i}-$${DTE}; \
+	ansible -i ../ansible/inventory_shared_services shared_services_controller -b -m shell -a "rados bench --show-time -p scbench 180 seq | tee > radosbench-seq-run$${i}-$${DTE}"; \
+	done
+
+ceph_run_rand_test:
+	DTE=`date | sed -e 's/  /\_/g' | sed -e 's/ /\_/g'` && \
+	cd os; \
+	for i in 1 2 3; do DTE=`date | sed -e 's/  /\_/g' | sed -e 's/ /\_/g'`; \
+	echo radosbench-rand-run$${i}-$${DTE}; \
+	ansible -i ../ansible/inventory_shared_services shared_services_controller -b -m shell -a "rados bench --show-time -p scbench 180 rand | tee > radosbench-rand-run$${i}-$${DTE}"; \
+	done
+
+# rados bench --show-time -p scbench 120 write --no-cleanup
 # -b block size
 # -o object size
 # -t concurrent ops
 
- # rados bench -p scbench -t 16 -b 4M  30 write --no-cleanup | tee write.log
- # rados bench -p scbench -t 16 -b 4M  30 seq | tee seq.log
- # rados bench -p scbench -t 16 -b 4M  30 rand | tee seq.log
+ # rados bench --show-time -p scbench -t 16 -b 4M  120 write --no-cleanup | tee write.log
+ # rados bench --show-time -p scbench -t 16 -b 4M  120 seq | tee seq.log
+ # rados bench --show-time -p scbench -t 16 -b 4M  120 rand | tee seq.log
 
 # fixing leftover raid
 # cat /proc/mdstat 

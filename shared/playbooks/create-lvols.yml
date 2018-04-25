@@ -1,0 +1,86 @@
+#!/usr/bin/env ansible-playbook
+---
+
+- name: Setup Keys
+  hosts:
+    - shared_services_controller
+    - shared_services_compute
+  become: yes
+
+  # vars:
+  #   key_target: tmp
+
+  tasks:
+
+    - name: Build ceph volume groups
+      lvg:
+        vg: "{{ item.vg }}"
+        pvs: "{{ item.pvs }}"
+      with_items:
+        - vg: ceph_vg1
+          pvs: /dev/sdb
+        - vg: ceph_vg2
+          pvs: /dev/sdc
+        - vg: ceph_vg3
+          pvs: /dev/sdd
+        - vg: ceph_wal1
+          pvs: /dev/ram0
+        - vg: ceph_wal2
+          pvs: /dev/ram1
+        - vg: ceph_wal3
+          pvs: /dev/ram2
+        - vg: ceph_wal4
+          pvs: /dev/ram3
+        - vg: ceph_wal5
+          pvs: /dev/ram4
+        - vg: ceph_wal6
+          pvs: /dev/ram5
+
+    - name: Verify or create a striped LV1_1
+      lvol:
+        lv: "{{ item.lv }}"
+        vg: "{{ item.vg }}"
+        # pvs: /dev/sdb
+        state: present
+        active: yes
+        shrink: no
+        # opts: "-i 3 --stripesize 8"
+        size: "{{ item.size }}"
+      with_items:
+        - lv: ceph_data1_1
+          vg: ceph_vg1
+          size: "50%FREE"
+        - lv: ceph_data1_2
+          vg: ceph_vg1
+          size: "100%FREE"
+        - lv: ceph_data2_1
+          vg: ceph_vg2
+          size: "50%FREE"
+        - lv: ceph_data2_2
+          vg: ceph_vg2
+          size: "100%FREE"
+        - lv: ceph_data3_1
+          vg: ceph_vg3
+          size: "50%FREE"
+        - lv: ceph_data3_2
+          vg: ceph_vg3
+          size: "100%FREE"
+        - lv: ceph_wal1
+          vg: ceph_wal1
+          size: "100%FREE"
+        - lv: ceph_wal2
+          vg: ceph_wal2
+          size: "100%FREE"
+        - lv: ceph_wal3
+          vg: ceph_wal3
+          size: "100%FREE"
+        - lv: ceph_wal4
+          vg: ceph_wal4
+          size: "100%FREE"
+        - lv: ceph_wal5
+          vg: ceph_wal5
+          size: "100%FREE"
+        - lv: ceph_wal6
+          vg: ceph_wal6
+          size: "100%FREE"
+
