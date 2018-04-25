@@ -1,6 +1,6 @@
 
-[shared-client:children]
-shared_services_controller
+[k8s-client:children]
+k8s_master
 
 [shared-node:children]
 shared_services_compute

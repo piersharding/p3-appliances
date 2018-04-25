@@ -1,64 +1,59 @@
 LIMIT ?=
 DOCKER_USER := piers@catalyst.net.nz
 DOCKER_PASSWORD := secret
-SIGNING_KEY := B81C8942C09FC231708FED9479C7D4D5AE8B8DAE
-
-
-# http://docs.ceph.com/ceph-ansible/master/
-# http://tracker.ceph.com/projects/ceph/wiki/Benchmark_Ceph_Cluster_Performance
 
 all: build
 
 build_hosts:
-	ansible-playbook -e @config/shared.yml -i ansible/inventory ansible/cluster-infra.yml
-	cd os  && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a 'apt update'
+	ansible-playbook -e @config/k8s.yml -i ansible/inventory ansible/cluster-infra.yml
+	cd k8s  && ansible -i ../ansible/inventory_k8s cluster -b -m shell -a 'apt update'
 
 add_common:
-	@echo "@@@@@@@@@@@@@"
-	@echo "@@@@@@@@@@@@@"
-	@echo "@@@@@@@@@@@@@"
-	@echo "temporary hack out of Ceph mount - broken barbican vars: ceph.client.alaska.key"
-	@echo "@@@@@@@@@@@@@"
-	@echo "@@@@@@@@@@@@@"
-	@echo "@@@@@@@@@@@@@"
-	cd os && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a "mkdir -p /alaska"
-	ansible-playbook -e @config/shared.yml -i ansible/inventory_shared_services ansible/shared.yml
+	# @echo "@@@@@@@@@@@@@"
+	# @echo "@@@@@@@@@@@@@"
+	# @echo "@@@@@@@@@@@@@"
+	# @echo "temporary hack out of Ceph mount - broken barbican vars: ceph.client.alaska.key"
+	# @echo "@@@@@@@@@@@@@"
+	# @echo "@@@@@@@@@@@@@"
+	# @echo "@@@@@@@@@@@@@"
+	# cd os && ansible -i ../ansible/inventory_k8s cluster -b -m shell -a "mkdir -p /alaska"
+	ansible-playbook -e @config/k8s.yml -i ansible/inventory_k8s ansible/k8s.yml
 
-build_os:
-	cd os && ansible-playbook -i ../ansible/inventory_shared_services -i ./inventory $(LIMIT) playbooks/os.yml --extra-vars="docker_user=$(DOCKER_USER) docker_password=$(DOCKER_PASSWORD) local_repo_signing_key=$(SIGNING_KEY)"
+build_k8s:
+	cd k8s && ansible-playbook -i ../ansible/inventory_k8s -i ./inventory $(LIMIT) playbooks/k8s.yml --extra-vars="docker_user=$(DOCKER_USER) docker_password=$(DOCKER_PASSWORD)"
 
 second_interface:
-	cd os  && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a 'ifconfig p3p1 up; dhclient p3p1'
+	cd k8s  && ansible -i ../ansible/inventory_k8s cluster -b -m shell -a 'ifconfig p3p1 up; dhclient p3p1'
 
 set_iface:
-	cd os  && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a 'echo "auto p3p1\niface p3p1 inet dhcp\n    gateway 10.60.210.1" | tee /etc/network/interfaces.d/90-p3p1.cfg'
+	cd k8s  && ansible -i ../ansible/inventory_k8s cluster -b -m shell -a 'echo "auto p3p1\niface p3p1 inet dhcp\n    gateway 10.60.210.1" | tee /etc/network/interfaces.d/90-p3p1.cfg'
 
 fix_iface:
-	cd os && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a 'route del default gw 10.1.0.1 p3p1; route add default gw 10.60.210.1 em1; route -n'
-	# cd os  && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a 'ip link set p3p1 up; ip link set p3p1 mtu 1500; ethtool -s p3p1 speed 25000 duplex full'
-	cd os  && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a 'ip link set p3p1 up; ip link set p3p1 mtu 9000; ethtool -s p3p1 speed 25000 duplex full; ibv_devinfo p3p1'
+	cd k8s && ansible -i ../ansible/inventory_k8s cluster -b -m shell -a 'route del default gw 10.1.0.1 p3p1; route add default gw 10.60.210.1 em1; route -n'
+	# cd k8s  && ansible -i ../ansible/inventory_k8s cluster -b -m shell -a 'ip link set p3p1 up; ip link set p3p1 mtu 1500; ethtool -s p3p1 speed 25000 duplex full'
+	cd k8s  && ansible -i ../ansible/inventory_k8s cluster -b -m shell -a 'ip link set p3p1 up; ip link set p3p1 mtu 9000; ethtool -s p3p1 speed 25000 duplex full; ibv_devinfo p3p1'
 
 # for i in mlx5_core mlx5_ib ib_core ib_uverbs ib_ipoib rdma_cm rdma_ucm; do modprobe $i; done
 # ifdown ib0
 # ifup ib0
 
 
-check_os:
-	cd os && ansible -i ../ansible/inventory_shared_services -i ./inventory --limit=shared-nodes cluster -b -m shell -a 'systemctl status docker; docker ps -a; uptime'
-	cd os && ansible -i ../ansible/inventory_shared_services cluster -m shell -a "hostname -f; hostname -s; hostnamectl"
+check_k8s:
+	cd k8s && ansible -i ../ansible/inventory_k8s -i ./inventory --limit=shared-nodes cluster -b -m shell -a 'systemctl status docker; docker ps -a; uptime'
+	cd k8s && ansible -i ../ansible/inventory_k8s cluster -m shell -a "hk8stname -f; hostname -s; hostnamectl"
 
 # ssh-keygen -y -f piers-p3.pem > piers-p3.pub
 shared_ssh_keys:
-	cd shared && ansible-playbook -i ../ansible/inventory_shared_services playbooks/ssh-keys.yml
+	cd k8s && ansible-playbook -i ../ansible/inventory_k8s playbooks/ssh-keys.yml
 
 reboot:
-	cd shared && ansible-playbook -i ../ansible/inventory_shared_services playbooks/restart-hosts.yml
+	cd k8s && ansible-playbook -i ../ansible/inventory_k8s playbooks/restart-hosts.yml
 
 # https://accelazh.github.io/ceph/Ceph-Performance-Tuning-Checklist
 # https://xiaoquqi.github.io/blog/2015/06/28/ceph-performance-optimization-summary/
 set_perf:
-	cd os && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a 'cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; for CPUFREQ in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do [ -f $$CPUFREQ ] || continue; echo -n performance > $$CPUFREQ; done; cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor'
-	cd os && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a 'for i in a b c d ; do echo "8192" > /sys/block/sd$$i/queue/read_ahead_kb; echo "1024" > /sys/block/sd$$i/queue/nr_requests; echo 2 > /sys/block/sd$$i/queue/rq_affinity; echo "cfq" > /sys/block/sd$$i/queue/scheduler; cat /sys/block/sd$$i/queue/read_ahead_kb; done'
+	cd k8s && ansible -i ../ansible/inventory_k8s cluster -b -m shell -a 'cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; for CPUFREQ in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do [ -f $$CPUFREQ ] || continue; echo -n performance > $$CPUFREQ; done; cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor'
+	cd k8s && ansible -i ../ansible/inventory_k8s cluster -b -m shell -a 'for i in a b c d ; do echo "8192" > /sys/block/sd$$i/queue/read_ahead_kb; echo "1024" > /sys/block/sd$$i/queue/nr_requests; echo 2 > /sys/block/sd$$i/queue/rq_affinity; echo "cfq" > /sys/block/sd$$i/queue/scheduler; cat /sys/block/sd$$i/queue/read_ahead_kb; done'
 
 # sudo route del default gw 10.60.210.1 dev p3p1
 # sudo route del -net 10.0.0.0 netmask 255.0.0.0 gw 0.0.0.0 dev ib0
@@ -68,49 +63,16 @@ set_perf:
 # cat /sys/class/net/ib0/mode
 # sudo ifconfig ib0 mtu 65520
 
-create_ramdisks:
-	# modprobe brd rd_nr=2 rd_size=2097152 max_part=0; mkfs.ext4 /dev/ram0; mkfs.ext4 /dev/ram1
-	cd os && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a 'modprobe brd rd_nr=6 rd_size=2097152 max_part=0'
-
-remove_ramdisks:
-	cd os && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a 'rmmod brd || true'
-
-
 fix: fix_iface set_perf
 
-# http://tracker.ceph.com/projects/ceph/wiki/Tuning_for_All_Flash_Deployments
-# https://xiaoquqi.github.io/blog/2015/06/28/ceph-performance-optimization-summary/
-# https://wiki.mikejung.biz/Ubuntu_Performance_Tuning#read_ahead_kb
 
-copy_fio_test:
-	cd os && ansible -i ../ansible/inventory_shared_services cluster -b -m copy -a "src=../fio_test.sh dest=/home/ubuntu/fio_test.sh owner=ubuntu group=ubuntu mode=0755"
-
-run_fio_test:
-	cd os && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a "cd /home/ubuntu; ./fio_test.sh"
-
-fetch_fio_test:
-	cd os && ansible -i ../ansible/inventory_shared_services cluster -b -m synchronize -a "src=/home/ubuntu/fiologs dest=/tmp/{{ inventory_hostname }} mode=pull"
-
-fio: copy_fio_test run_fio_test fetch_fio_test
-
-# os_ssh_key:
-# 	cd shared && ansible -i ../ansible/inventory_shared_services shared_services_controller -m copy -a "src=playbooks/tmp/id_rsa dest=/home/ubuntu/genconf/ssh_key"
-
-copy_key:
-	cd os && ansible -i ../ansible/inventory_shared_services shared_services_controller -m copy -a "src=../repo-key.asc dest=/home/ubuntu/repo-key.asc owner=ubuntu group=ubuntu mode=0644"
-	cd os && ansible -i ../ansible/inventory_shared_services shared_services_controller -m shell -a 'gpg --import /home/ubuntu/repo-key.asc || true'
-
-os: build_hosts add_common copy_key build_os set_iface shared_ssh_keys
-# os: copy_key build_os set_iface shared_ssh_keys
+k8s: build_hosts add_common copy_key build_k8s set_iface shared_ssh_keys
 
 iface: second_interface set_iface fix_iface
 
 dnsmasq:
-	# cd os  && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a 'export DEBIAN_FRONTEND=noninteractive; apt install -y dnsmasq'
-	cd os  && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a 'dig shared-services-controller-0'
-
-rados_client:
-	cd os && ansible -i ../ansible/inventory_shared_services shared_services_controller -m copy -a "src=../rados_client.py dest=/home/ubuntu/rados_client.py owner=ubuntu group=ubuntu mode=0755"
+	# cd k8s  && ansible -i ../ansible/inventory_k8s cluster -b -m shell -a 'export DEBIAN_FRONTEND=noninteractive; apt install -y dnsmasq'
+	cd k8s  && ansible -i ../ansible/inventory_k8s cluster -b -m shell -a 'dig shared-services-controller-0'
 
 
 # fix interfaces 
@@ -119,25 +81,18 @@ rados_client:
 
 
 run_repo:
-	cd os && ansible -i ../ansible/inventory_shared_services shared_services_controller -m shell -a 'docker run -d --restart always --name nginx -p 88:80 -v /home/ubuntu/default.conf:/etc/nginx/conf.d/default.conf:ro -v /var/tmp/release/Ubuntu:/usr/share/nginx/html:ro nginx'
-	cd os && ansible -i ../ansible/inventory_shared_services shared_services_controller -m shell -a 'curl http://localhost:88'
-	# cd os && ansible -i ../ansible/inventory_shared_services shared_services_controller -b -m shell -a 'export DEBIAN_FRONTEND=noninteractive; apt-get update; apt-get install -y python3-rados'
+	cd os && ansible -i ../ansible/inventory_k8s shared_services_controller -m shell -a 'docker run -d --restart always --name nginx -p 88:80 -v /home/ubuntu/default.conf:/etc/nginx/conf.d/default.conf:ro -v /var/tmp/release/Ubuntu:/usr/share/nginx/html:ro nginx'
+	cd os && ansible -i ../ansible/inventory_k8s shared_services_controller -m shell -a 'curl http://localhost:88'
+	# cd os && ansible -i ../ansible/inventory_k8s shared_services_controller -b -m shell -a 'export DEBIAN_FRONTEND=noninteractive; apt-get update; apt-get install -y python3-rados'
 
 tools:
-	cd os && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a 'export DEBIAN_FRONTEND=noninteractive; apt-get install -y linux-headers-generic; cd /tmp; rm -rf mft-4.9.0-38-x86_64-deb.tgz mft-4.9.0-38-x86_64-deb; wget -q http://www.mellanox.com/downloads/MFT/mft-4.9.0-38-x86_64-deb.tgz; tar -xzf mft-4.9.0-38-x86_64-deb.tgz; cd /tmp/mft-4.9.0-38-x86_64-deb/; ./install.sh; mst start'
+	cd os && ansible -i ../ansible/inventory_k8s cluster -b -m shell -a 'export DEBIAN_FRONTEND=noninteractive; apt-get install -y linux-headers-generic; cd /tmp; rm -rf mft-4.9.0-38-x86_64-deb.tgz mft-4.9.0-38-x86_64-deb; wget -q http://www.mellanox.com/downloads/MFT/mft-4.9.0-38-x86_64-deb.tgz; tar -xzf mft-4.9.0-38-x86_64-deb.tgz; cd /tmp/mft-4.9.0-38-x86_64-deb/; ./install.sh; mst start'
 
 check_mellanox:
-	cd os && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a 'mlxconfig -d /dev/mst/mt4115_pciconf0 q | grep LINK_TYPE '
+	cd os && ansible -i ../ansible/inventory_k8s cluster -b -m shell -a 'mlxconfig -d /dev/mst/mt4115_pciconf0 q | grep LINK_TYPE '
 
 set_mellanox:
-	cd os && ansible -i ../ansible/inventory_shared_services cluster -b -m shell -a 'mlxconfig -y -d /dev/mst/mt4115_pciconf0 set LINK_TYPE_P1=1 LINK_TYPE_P2=2 '
-
-
-create_lvols:
-	cd shared && ansible-playbook -i ../ansible/inventory_shared_services playbooks/create-lvols.yml
-
-purge_lvols:
-	cd shared && ansible-playbook -i ../ansible/inventory_shared_services playbooks/purge-vols.yml
+	cd os && ansible -i ../ansible/inventory_k8s cluster -b -m shell -a 'mlxconfig -y -d /dev/mst/mt4115_pciconf0 set LINK_TYPE_P1=1 LINK_TYPE_P2=2 '
 
 
 # Infiniband tools
@@ -160,54 +115,12 @@ purge_lvols:
 # https://wiki.archlinux.org/index.php/InfiniBand#Over_IPoIB
 
 # os_ssh_key:
-# 	cd shared && ansible -i ../ansible/inventory_shared_services shared_services_controller -m copy -a "src=playbooks/tmp/id_rsa dest=/home/ubuntu/genconf/ssh_key"
+# 	cd shared && ansible -i ../ansible/inventory_k8s shared_services_controller -m copy -a "src=playbooks/tmp/id_rsa dest=/home/ubuntu/genconf/ssh_key"
 
 # find pools
 # for i in `rados lspools`; do  ceph osd pool application get $i; done
 
 # http://tracker.ceph.com/projects/ceph/wiki/Benchmark_Ceph_Cluster_Performance
-
-ceph_test_setup:
-	cd os && ansible -i ../ansible/inventory_shared_services shared_services_controller -b -m shell -a 'ceph -s; ceph osd pool create scbench 256 256; ceph osd pool stats; ceph osd pool get scbench size; ceph osd pool application enable scbench librados'
-# ceph osd pool create scbench 256 256
-# ceph osd pool get scbench size
-# ceph osd pool rm scbench scbench --yes-i-really-really-mean-it
-
-ceph_test_teardown:
-	cd os && ansible -i ../ansible/inventory_shared_services shared_services_controller -b -m shell -a 'ceph -s; ceph osd pool rm scbench scbench --yes-i-really-really-mean-it'
-
-ceph_run_write_test:
-	DTE=`date | sed -e 's/  /\_/g' | sed -e 's/ /\_/g'` && \
-	cd os; \
-	for i in 1 2 3; do DTE=`date | sed -e 's/  /\_/g' | sed -e 's/ /\_/g'`; \
-	echo radosbench-write-run$${i}-$${DTE}; \
-	ansible -i ../ansible/inventory_shared_services shared_services_controller -b -m shell -a "rados bench --show-time -p scbench 180 write --no-cleanup | tee > radosbench-write-run$${i}-$${DTE}"; \
-	done
-
-ceph_run_seq_test:
-	DTE=`date | sed -e 's/  /\_/g' | sed -e 's/ /\_/g'` && \
-	cd os; \
-	for i in 1 2 3; do DTE=`date | sed -e 's/  /\_/g' | sed -e 's/ /\_/g'`; \
-	echo radosbench-seq-run$${i}-$${DTE}; \
-	ansible -i ../ansible/inventory_shared_services shared_services_controller -b -m shell -a "rados bench --show-time -p scbench 180 seq | tee > radosbench-seq-run$${i}-$${DTE}"; \
-	done
-
-ceph_run_rand_test:
-	DTE=`date | sed -e 's/  /\_/g' | sed -e 's/ /\_/g'` && \
-	cd os; \
-	for i in 1 2 3; do DTE=`date | sed -e 's/  /\_/g' | sed -e 's/ /\_/g'`; \
-	echo radosbench-rand-run$${i}-$${DTE}; \
-	ansible -i ../ansible/inventory_shared_services shared_services_controller -b -m shell -a "rados bench --show-time -p scbench 180 rand | tee > radosbench-rand-run$${i}-$${DTE}"; \
-	done
-
-# rados bench --show-time -p scbench 120 write --no-cleanup
-# -b block size
-# -o object size
-# -t concurrent ops
-
- # rados bench --show-time -p scbench -t 16 -b 4M  120 write --no-cleanup | tee write.log
- # rados bench --show-time -p scbench -t 16 -b 4M  120 seq | tee seq.log
- # rados bench --show-time -p scbench -t 16 -b 4M  120 rand | tee seq.log
 
 # fixing leftover raid
 # cat /proc/mdstat 

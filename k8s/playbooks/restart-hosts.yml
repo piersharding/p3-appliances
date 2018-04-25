@@ -1,0 +1,33 @@
+#!/usr/bin/env ansible-playbook
+---
+
+- name: Deploy docker Node
+  hosts: localhost
+
+  vars:
+    # change if required or override at runtime using --extra-vars
+
+  vars_files:
+    # - group_vars/controller
+    - roles/common/vars/default.yml
+
+  tasks:
+    - name: Connect to OpenStack
+      os_auth:
+
+    - name: "Show nodes to reboot"
+      debug: var=groups["cluster"]
+
+    - name: stop an instance
+      os_server_action:
+        action: stop
+        server: "{{ item }}"
+        timeout: 200
+      with_items: "{{ groups['cluster'] }}"
+
+    - name: start an instance
+      os_server_action:
+        action: start
+        server: "{{ item }}"
+        timeout: 200
+      with_items: "{{ groups['cluster'] }}"

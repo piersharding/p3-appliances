@@ -1,0 +1,152 @@
+#!/usr/bin/env ansible-playbook
+---
+
+- name: Setup Keys
+  hosts:
+    - shared_services_controller
+    - shared_services_compute
+  become: yes
+
+  vars:
+    key_target: tmp
+
+  tasks:
+
+    - name: Set facts for ssh key file
+      set_fact:
+        key_file: "{{ key_target }}/id_rsa"
+        public_key_file: "{{ key_target }}/id_rsa.pub"
+
+    - name: Create local target dir
+      local_action:
+        module: file
+        path: "{{ key_target }}"
+        state: directory
+      become: no
+      run_once: true
+
+    - name: Generate SSH keys
+      local_action: "shell ssh-keygen -b 4096 -t rsa -f {{ key_file }} -q -N \"\" creates={{ key_file }}"
+      become: no
+      run_once: true
+
+    - name: Create /home/ubuntu/.ssh
+      file: 
+        path: "/home/ubuntu/.ssh"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: "0700"
+
+    - name: Set authorized key
+      copy:
+        src: "{{ key_file }}"
+        dest: /home/ubuntu/.ssh/id_rsa
+        owner: ubuntu
+        group: ubuntu
+        mode: "0600"
+
+    - name: Set authorized pub key
+      copy:
+        src: "{{ public_key_file }}"
+        dest: /home/ubuntu/.ssh/id_rsa.pub
+        owner: ubuntu
+        group: ubuntu
+        mode: "0600"
+
+    - name: Find keys
+      command: "/usr/bin/ssh-keyscan -T 10 {{ hostvars[item].ansible_host }}"
+      register: keyscan
+      with_items: "{{ groups['cluster'] }}"
+
+    # - name: "Show keyscan item info"
+    #   debug: var=item
+    #   with_items: "{{keyscan.results}}"
+
+    # - name: "Show item.item"
+    #   debug: msg="item.item={{item.item}}, item.stdout={{item.stdout}}"
+    #   with_items: "{{keyscan.results}}"
+
+    - name: Add newly created hosts to local ssh.config
+      blockinfile:
+        dest: "/home/ubuntu/.ssh/known_hosts"
+        create: yes
+        owner: ubuntu
+        group: ubuntu
+        mode: "0600"
+        block: |
+          {% for item in keyscan.results %}
+          {% for line in item.stdout_lines %}
+          {{ line }}
+          {% endfor %}
+          {% endfor %}
+        marker: "# {mark} ANSIBLE MANAGED BLOCK for shared compute node"
+
+    - name: Add public key to authorised keys
+      blockinfile:
+        dest: "/home/ubuntu/.ssh/authorized_keys"
+        create: yes
+        owner: ubuntu
+        group: ubuntu
+        mode: "0600"
+        block: |
+          {{ lookup('file', public_key_file) }}
+        marker: "# {mark} ANSIBLE MANAGED BLOCK for shared controller node"
+
+    - name: Create /root/.ssh
+      file: 
+        path: "/root/.ssh"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Set authorized key
+      copy:
+        src: "{{ key_file }}"
+        dest: /root/.ssh/id_rsa
+        owner: root
+        group: root
+        mode: "0600"
+
+    - name: Set authorized pub key
+      copy:
+        src: "{{ public_key_file }}"
+        dest: /root/.ssh/id_rsa.pub
+        owner: root
+        group: root
+        mode: "0600"
+
+    # - name: Find keys
+    #   command: "/usr/bin/ssh-keyscan -T 10 {{ hostvars[item].ansible_host }}"
+    #   register: keyscan
+    #   with_items: "{{ groups['cluster'] }}"
+
+    # - name: "Show keyscan info"
+    #   debug: var=keyscan.results
+
+    - name: Add newly created hosts to local ssh.config
+      blockinfile:
+        dest: "/root/.ssh/known_hosts"
+        create: yes
+        owner: root
+        group: root
+        mode: "0600"
+        block: |
+          {% for item in keyscan.results %}
+          {% for line in item.stdout_lines %}
+          {{ line }}
+          {% endfor %}
+          {% endfor %}
+        marker: "# {mark} ANSIBLE MANAGED BLOCK for shared compute node"
+
+    - name: Add public key to authorised keys
+      blockinfile:
+        dest: "/root/.ssh/authorized_keys"
+        create: yes
+        owner: root
+        group: root
+        mode: "0600"
+        block: |
+          {{ lookup('file', public_key_file) }}
+        marker: "# {mark} ANSIBLE MANAGED BLOCK for shared controller node"
