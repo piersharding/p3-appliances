@@ -1,0 +1,4 @@
+  - hostPath:
+      path: /etc/kubernetes/cloud.conf
+      type: FileOrCreate
+    name: cloudconfig

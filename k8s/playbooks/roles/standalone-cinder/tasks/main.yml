@@ -1,0 +1,121 @@
+---
+
+- name: Set the host grouping
+  set_fact:
+    host_grouping: "{% if not inventory_hostname in groups['k8s_minion'] %}compute{% else %}controller{% endif %}"
+
+- name: set cluster API address.
+  set_fact:
+    cluster_api_address: "{{ hostvars[groups['k8s_master'][0]]['secondary_ip'] if ('secondary_ip' in hostvars[groups['k8s_master'][0]]) else hostvars[groups['k8s_master'][0]]['ansible_default_ipv4']['address'] }}"
+
+- name: Build cinder volume groups
+  lvg:
+    vg: "{{ item.vg }}"
+    pvs: "{{ item.pvs }}"
+  with_items:
+    - vg: cinder-volumes
+      pvs: /dev/sdd
+
+- name: Ensure required packages are installed (apt)
+  apt:
+    name: "{{ item }}"
+    update_cache: yes
+    state: installed
+  with_items:
+    - lvm2
+    - tgt
+    - targetcli
+    - open-iscsi
+    - python-pip
+    - python3-pip
+    - python-setuptools
+    - python3-setuptools
+    
+- name: install cinder dependencies
+  pip:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - python-cinderclient
+    - python-brick-cinderclient-ext
+    
+- name: Add the dm_thin_pool module
+  modprobe:
+    name: dm_thin_pool
+    state: present
+
+- name: Enable iscsi initiator
+  lineinfile:
+    regexp: '^node.startup ='
+    line: 'node.startup = automatic'
+    path: /etc/iscsi/iscsid.conf
+
+- name: ensure iscsid restarts
+  service: name=iscsid state=restarted enabled=yes
+  become: true
+
+- name: install docker dependencies
+  pip:
+    name: docker-py
+    state: absent
+
+- name: install docker dependencies
+  pip:
+    name: "docker==3.1.4"
+
+- name: install docker-compose dependencies
+  pip:
+    name: 'docker-compose>=1.7.0'
+
+
+- name: Setup standalone cinder config
+  synchronize:
+    src: cinder/
+    dest: /home/ubuntu/cinder/
+    recursive: yes
+    perms: no
+    owner: no
+    group: no
+
+- name: Log into private registry
+  docker_login:
+    registry: gitlab.catalyst.net.nz:4567
+    username: "{{ docker_user }}"
+    password: "{{ docker_password }}"
+
+- name: Stop cinder services
+  docker_service:
+    project_src: /home/ubuntu/cinder
+    state: absent
+
+
+- name: docker pull images
+  docker_image:
+    state: present
+    pull: true
+    name: "{{ item }}"
+  with_items:
+    - "{{ cinder_image }}"
+    - "{{ lvm_cinder_image }}"
+
+
+- name: Stop cinder services
+  docker_service:
+    project_name: standalone-cinder
+    project_src: /home/ubuntu/cinder
+    state: absent
+
+- name: Start cinder services
+  docker_service:
+    project_name: standalone-cinder
+    project_src: /home/ubuntu/cinder
+    state: present
+  register: output
+
+- debug:
+    var: output
+
+- name: setup cinder.rc
+  template: src=cinder.rc.j2 dest="/home/ubuntu/cinder.rc"
+
+- meta: flush_handlers

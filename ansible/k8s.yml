@@ -1,4 +1,16 @@
 ---
 - include: setup.yml
-- include: ceph-client.yml
+# - include: ceph-client.yml
+
+- name: "Create the home directories"
+  hosts:
+    - k8s_master
+    - k8s_minion
+  become: yes
+  tasks:
+    - name: Ensure the home directory mountpoint exists
+      file:
+        path: "{{ alaska_homedir }}"
+        state: directory
+
 - include: users.yml

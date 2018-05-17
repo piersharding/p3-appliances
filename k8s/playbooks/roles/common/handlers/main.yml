@@ -1,7 +1,20 @@
+- name: reload systemd
+  command: systemctl daemon-reload
+  # when: ansible_os_family == "RedHat" and ansible_distribution_major_version == "7"
+
+- name: restart journald
+  service: name=systemd-journald state=restarted enabled=yes
+  become: true
+
 - name: Start docker
   service:
     name: docker
     state: started
+
+- name: restart docker
+  service:
+    name: docker
+    state: restarted
 
 - name: Run update-grub
   shell: "{{ update_grub }}"
@@ -11,10 +24,6 @@
   service: name=rsyslog state=restarted enabled=yes
   become: true
 
-- name: restart journald
-  service: name=systemd-journald state=restarted enabled=yes
-  become: true
-
-- name: restart dnsmasq
-  service: name=dnsmasq state=restarted enabled=yes
-  become: true
+# - name: restart dnsmasq
+#   service: name=dnsmasq state=restarted enabled=yes
+#   become: true

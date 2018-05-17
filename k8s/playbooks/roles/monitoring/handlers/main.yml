@@ -1,0 +1,12 @@
+---
+- name: reload systemd
+  command: systemctl daemon-reload
+  # when: ansible_os_family == "RedHat" and ansible_distribution_major_version == "7"
+
+- name: restart journald
+  service: name=systemd-journald state=restarted enabled=yes
+  become: true
+
+- name: restart journalbeat
+  service: name=journalbeat state=restarted enabled=yes
+  become: true

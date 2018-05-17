@@ -1,0 +1,29 @@
+---
+
+kubeadm_version: 1.8.1-01
+kubelet_version: 1.8.1-01
+kubectl_version: 1.8.1-00
+kubernetes_cni_version: 0.5.1-00
+
+k8s_interface: p3p1
+
+provider_auth_url: http://10.60.253.1:5000/v3
+provider_username: user
+provider_password: pass
+provider_region: RegionOne
+provider_tenant_id: 5638e8577bc84379baba4bfb66177086
+provider_domain_name: Default
+provider_subnet_id: 5b880171-dd61-4c17-821e-e733e269b53d
+# "public"
+
+# cinder_auth_url: http://127.0.0.1:8776/v3
+cinder_username: admin
+cinder_password: admin
+cinder_region: RegionOne
+cinder_tenant_name: admin
+cinder_domain_name: Default
+cinder_volume_api_version: 3.44
+
+kube_state_metrics_clusterip: 10.101.1.80
+cinder_standalone_provisioner_image: docker.io/k8scloudprovider/cinder-provisioner:latest
+#cinder_standalone_provisioner_image: gitlab.catalyst.net.nz:4567/piers/logging-and-monitoring/cinder-provisioner:latest

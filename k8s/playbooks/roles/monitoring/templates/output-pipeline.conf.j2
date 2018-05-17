@@ -1,0 +1,108 @@
+#input {
+#  kafka {
+#    bootstrap_servers => "{{ kafka_master.hostname }}:9092,worker1:9092,worker2:9092"
+#    codec => json
+#    topics => ["collectd"]
+#    type => "collectd"
+#    consumer_threads => 4
+##    auto_offset_reset => "latest"
+##    auto_commit_interval_ms => "3000"
+##    connections_max_idle_ms => "5000"
+##    enable_auto_commit => "true"
+##    fetch_max_wait_ms => "3000"
+##    heartbeat_interval_ms => "3000"
+##    poll_timeout_ms => "1000"
+##    session_timeout_ms => "9000"
+#  }
+#}
+
+input {
+  kafka {
+    bootstrap_servers => "{{ kafka_master.hostname }}:9092,worker1:9092,worker2:9092"
+    codec => json
+    topics => ["rsyslog"]
+    type => "rsyslog"
+    consumer_threads => 12
+#    auto_offset_reset => "latest"
+#    auto_commit_interval_ms => "3000"
+#    connections_max_idle_ms => "5000"
+#    enable_auto_commit => "true"
+#    fetch_max_wait_ms => "3000"
+#    heartbeat_interval_ms => "3000"
+#    poll_timeout_ms => "1000"
+#    session_timeout_ms => "9000"
+  }
+}
+
+input {
+  kafka {
+    bootstrap_servers => "{{ kafka_master.hostname }}:9092,worker1:9092,worker2:9092"
+    codec => json
+    topics => ["metricsets"]
+    type => "metricsets"
+    consumer_threads => 3
+#    auto_offset_reset => "latest"
+#    auto_commit_interval_ms => "3000"
+#    connections_max_idle_ms => "5000"
+#    enable_auto_commit => "true"
+#    fetch_max_wait_ms => "3000"
+#    heartbeat_interval_ms => "3000"
+#    poll_timeout_ms => "1000"
+#    session_timeout_ms => "9000"
+  }
+}
+#filter {
+#    metrics {
+#        meter => "events"
+#        add_tag => "metric"
+#        flush_interval => 60
+#    }
+#}
+
+output {
+  # stdout { codec => rubydebug }
+  if "_grokparsefailure" in [tags] or "_jsonparsefailure" in [tags] {
+    elasticsearch {
+      hosts => ["elasticsearch:9200"]
+#      user => "logstash_internal"
+#      password => "changeme"
+      index => "parse-err-%{+YYYY.MM.dd}"
+    }
+  }
+  if [type] == "rsyslog" {
+    elasticsearch { 
+      hosts => ["elasticsearch:9200"] 
+#      user => "logstash_internal"
+#      password => "changeme"
+      index => "rsyslog-%{+YYYY.MM.dd}"
+    }
+  }
+#  if [type] == "collectd" {
+#    elasticsearch { 
+#      hosts => ["elasticsearch:9200"] 
+##      user => "logstash_internal"
+##      password => "changeme"
+#      index => "collectd-%{+YYYY.MM.dd}"
+#    }
+#  }
+  if [type] == "metricsets" {
+      # stdout { codec => rubydebug }
+
+    elasticsearch { 
+      hosts => ["elasticsearch:9200"] 
+#      user => "logstash_internal"
+#      password => "changeme"
+      index => "metrics-%{+YYYY.MM.dd}"
+    }
+  }
+}
+
+#output {
+#    if "metric" in [tags] {
+#        stdout {
+#            codec => line {
+#                format => "1m rate: %{[events][rate_1m]} (%{[events][count]})"
+#            }
+#        }
+#    }
+#}

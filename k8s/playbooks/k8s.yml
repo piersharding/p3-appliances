@@ -3,45 +3,50 @@
 
 - name: "Apply the common role to shared nodes"
   hosts:
-    - shared_services_controller
-    - shared_services_compute
+    - k8s_master
+    - k8s_minion
   become: yes
   become_method: sudo
   roles:
     - common
+  tags:
+    - common
 
 - name: "Show debug info"
   hosts:
-    - shared_services_controller
-    - shared_services_compute
+    - k8s_master
+    - k8s_minion
   become: yes
   tasks:
     - name: "Show nodes info"
       debug: var=hostvars[inventory_hostname]
       when: debug
 
-- name: "Apply the shared role to the Ceph nodes"
+- name: "Setup monitoring services"
   hosts:
-    - shared_services_controller
-    - shared_services_compute
+    - k8s_master
+    - k8s_minion
   become: yes
   roles:
-    - os
-
-- name: "Apply the shared role to the Ceph master"
-  hosts:
-    - shared_services_controller
-  become: yes
-  roles:
-    - master
+    - monitoring
   tags:
-    - master
+    - monitoring
 
-- name: "Setup client services"
+- name: "Apply the cinder role to the K8s master"
   hosts:
-    - shared_services_controller
+    - k8s_master
   become: yes
   roles:
-    - client
+    - standalone-cinder
   tags:
-    - client
+    - cinder
+
+- name: "Apply the shared role to the K8s nodes"
+  hosts:
+    - k8s_master
+    - k8s_minion
+  become: yes
+  roles:
+    - k8s
+  tags:
+    - k8s

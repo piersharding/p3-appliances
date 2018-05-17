@@ -1,0 +1,11 @@
+---
+
+kibana_image: gitlab.catalyst.net.nz:4567/piers/logging-and-monitoring/kibana-with-logtrail:6.2.4
+logstash_image: gitlab.catalyst.net.nz:4567/piers/logging-and-monitoring/logstash-with-config:6.2.4
+elasticsearch_image: docker.elastic.co/elasticsearch/elasticsearch:6.2.4
+journalbeat_image: gitlab.catalyst.net.nz:4567/piers/logging-and-monitoring/journalbeat
+journalbeat_url: https://github.com/mheese/journalbeat/releases/download/v5.6.9/journalbeat
+
+k8s_interface: p3p1
+
+kube_state_metrics_clusterip: 10.101.1.80

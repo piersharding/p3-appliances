@@ -1,0 +1,80 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: standalone-cinder-provisioner
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: cinder-rbac
+subjects:
+  - kind: ServiceAccount
+    name: standalone-cinder-provisioner
+    namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: standalone-cinder-provisioner
+  namespace: kube-system
+  labels:
+    k8s-app: standalone-cinder-provisioner
+spec:
+  selector:
+    matchLabels:
+      k8s-app: standalone-cinder-provisioner
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        k8s-app: standalone-cinder-provisioner
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/master: ""
+      securityContext:
+        runAsUser: 1001
+      tolerations:
+      - key: node.cloudprovider.kubernetes.io/uninitialized
+        value: "true"
+        effect: NoSchedule
+      - key: node-role.kubernetes.io/master
+        effect: NoSchedule
+      serviceAccountName: standalone-cinder-provisioner
+      containers:
+      - name: standalone-cinder-provisioner
+        image: {{ cinder_standalone_provisioner_image }}
+        imagePullPolicy: IfNotPresent
+        args:
+        - /bin/cinder-provisioner
+        - --v=4
+        env:
+#        - name: OS_AUTH_URL
+#          value: http://{{ cluster_api_address }}:8776/v3
+        - name: OS_CINDER_ENDPOINT
+          value: http://{{ cluster_api_address }}:8776/v3
+#        - name: OS_AUTH_SYSTEM
+#          value: noauth
+#        - name: OS_VOLUME_API_VERSION
+#          value: "{{ cinder_volume_api_version }}"
+        - name: OS_USERNAME
+          value: {{ cinder_username }}
+        - name: OS_PROJECT_ID
+          value: {{ cinder_tenant_name }}
+
+#OS_CINDER_ENDPOINT=http://cinder-host:8776/v2
+#OS_USERNAME=admin
+#OS_TENANT_NAME=admin
+
+#OS_PROJECT_ID=myproject
+#OS_AUTH_SYSTEM=noauth
+#OS_USERNAME=bubba
+#OS_VOLUME_API_VERSION=3.44
+#CINDERCLIENT_BYPASS_URL=http://127.0.0.1:8776/v3
+#CINDER_ENDPOINT=http://127.0.0.1:8776/v3

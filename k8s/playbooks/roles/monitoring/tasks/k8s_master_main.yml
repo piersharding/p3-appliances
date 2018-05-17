@@ -1,0 +1,479 @@
+---
+
+# - name: Format Prometheus data
+#   filesystem:
+#     fstype: xfs
+#     dev: /dev/sdc
+
+- name: Ensure the /var/lib/prometheus-data directory mountpoint exists
+  file:
+    path: /var/lib/prometheus-data
+    state: directory
+
+# - name: mount prometheus-data
+#   mount:
+#     name: /var/lib/prometheus-data
+#     src: /dev/sdc
+#     opts: defaults,noatime
+#     dump: 0
+#     passno: 0
+#     fstype: xfs
+#     state: mounted
+
+
+- name: Format Stack data
+  filesystem:
+    fstype: xfs
+    dev: /dev/sdc
+
+- name: Ensure the /var/lib/stack-data directory mountpoint exists
+  file:
+    path: /var/lib/stack-data
+    state: directory
+
+- name: mount stack-data
+  mount:
+    name: /var/lib/stack-data
+    src: /dev/sdc
+    opts: defaults,noatime
+    dump: 0
+    passno: 0
+    fstype: xfs
+    state: mounted
+
+
+- name: Ensure required packages are installed (apt)
+  apt:
+    name: "{{ item }}"
+    update_cache: yes
+    state: installed
+  with_items:
+  - python-pip
+  - python3-pip
+  # - python-rados
+  # - python3-rados
+
+- name: set server id
+  set_fact:
+    this_server_id: "{{ play_hosts.index(inventory_hostname) + 1 }}"
+
+
+- name: install docker dependencies
+  pip:
+    name: docker-py
+
+# - name: nodes remove containers
+#   docker_container:
+#     name: "{{ item }}"
+#     state: absent
+#   with_items:
+#     - nodeexporter
+
+# - name: docker pull images
+#   docker_image:
+#     name: "{{ item.name }}"
+#     tag: "{{ item.tag }}"
+#     pull: true
+#     state: present
+#   with_items:
+#     - name: prom/node-exporter
+#       tag: latest
+
+# - name: Restart a nodeexporter
+#   docker_container:
+#     name: nodeexporter
+#     restart_policy: always
+#     image: "prom/node-exporter:latest"
+#     state: started
+#     network_mode: host
+#     command: --collector.textfile.directory /textfiles
+#     volumes:
+#      - "/var/lib/node_exporter/textfile_collector:/textfiles:ro"
+#     labels:
+#       org.label-schema.group: monitoring
+#     ports:
+#       - "9100:9100"
+
+
+
+
+- name: elk remove containers
+  docker_container:
+    name: "{{ item }}"
+    state: absent
+  with_items:
+    - elk_elasticsearch
+    - elk_kibana
+    - elk_logstash
+
+- sysctl:
+    name: vm.max_map_count
+    value: 262144
+    state: present
+  become: true
+
+  # forwarding for pppd tunnel
+- sysctl:
+    name: net.ipv4.ip_forward
+    value: 1
+    state: present
+
+- name: masquerade for tunnelling
+  iptables:
+    table: nat
+    chain: POSTROUTING
+    protocol: tcp
+    source: 10.0.8.0/24
+    jump: MASQUERADE
+    out_interface: "{{ k8s_interface }}"
+    comment: Ansible masquerade rule for ppp
+
+- name: Creates directory /var/lib/stack-data/elasticsearch
+  file: 
+    path: /var/lib/stack-data/elasticsearch
+    state: directory
+    mode: 0777
+    owner: root
+    group: root
+
+- name: Log into private registry
+  docker_login:
+    registry: gitlab.catalyst.net.nz:4567
+    username: "{{ docker_user }}"
+    password: "{{ docker_password }}"
+
+# - name: docker remove local images
+#   docker_image:
+#     state: absent
+#     rm: true
+#     name: "{{ item }}"
+#   with_items:
+#     - "{{ kibana_image }}"
+#     - "{{ logstash_image }}"
+
+- name: docker pull images
+  docker_image:
+    state: present
+    pull: true
+    name: "{{ item }}"
+  with_items:
+    - "{{ elasticsearch_image }}"
+    - "{{ kibana_image }}"
+    - "{{ logstash_image }}"
+
+- name: Restart a Elasticsearch
+  docker_container:
+    name: elk_elasticsearch
+    restart_policy: always
+    image: "{{ elasticsearch_image }}"
+    # command: -Ebootstrap.memory_lock="true" -Ecluster.name="elk" -Ediscovery.zen.minimum_master_nodes="1"  -Ehttp.host="0.0.0.0"  -Enetwork.host="0.0.0.0" -Etransport.host=127.0.0.1
+    state: started
+    labels:
+      org.label-schema.group: monitoring
+    volumes:
+     - "/var/lib/stack-data/elasticsearch:/usr/share/elasticsearch/data"
+    ports:
+    - "9200:9200"
+    - "9300:9300"
+    env:
+        bootstrap.memory_lock: "true"
+        cluster.name: "elk"
+        discovery.zen.minimum_master_nodes: "1"
+        http.host: "0.0.0.0"
+        network.host: "0.0.0.0"
+        transport.host: "127.0.0.1"
+        ES_JAVA_OPTS: "-Xms4096m -Xmx4096m"
+        discovery.type: "single-node"
+
+- name: Run plugin install for elasticsearch-prometheus-exporter
+  command: docker exec elk_elasticsearch /usr/share/elasticsearch/bin/elasticsearch-plugin install -b https://distfiles.compuscene.net/elasticsearch/elasticsearch-prometheus-exporter-6.2.4.0.zip
+
+- name: Restart elk_elasticsearch container
+  docker_container:
+    name: elk_elasticsearch
+    # state: started
+    restart: yes
+
+# https://github.com/vvanholl/elasticsearch-prometheus-exporter
+# /bin/elasticsearch-plugin install -b https://distfiles.compuscene.net/elasticsearch/elasticsearch-prometheus-exporter-6.2.4.0.zip
+
+# add so elasticsearch-head works
+# https://github.com/mobz/elasticsearch-head
+# /usr/share/elasticsearch/config/elasticsearch.yml
+# http.cors.enabled: true
+# http.cors.allow-origin: "*"
+
+- name: Restart a Kibana
+  docker_container:
+    name: elk_kibana
+    restart_policy: always
+    image: "{{ kibana_image }}"
+    command: "kibana -e http://{{ ansible_default_ipv4.address }}:9200"
+    state: started
+    etc_hosts:
+      elasticsearch: "{{ hostvars[groups['k8s_master'][0]]['secondary_ip'] if ('secondary_ip' in hostvars[groups['k8s_master'][0]]) else hostvars[groups['k8s_master'][0]]['ansible_default_ipv4']['address'] }}"
+    labels:
+      org.label-schema.group: monitoring
+    ports:
+    - "5601:5601"
+
+
+- name: Creates directory /var/lib/stack-data/logstash
+  file: 
+    path: /var/lib/stack-data/logstash
+    state: directory
+    mode: 0755
+    owner: root
+    group: root
+
+- name: Creates directory /etc/logstash
+  file: path=/etc/logstash state=directory
+
+- name: Configure Logstash
+  template: src="pipeline.conf.j2" dest=/etc/logstash/logstash.conf mode=0644
+
+- name: Restart a Logstash
+  docker_container:
+    name: elk_logstash
+    restart_policy: always
+    image: "{{ logstash_image }}"
+    command: logstash -f /usr/share/logstash/pipeline/logstash.conf -r -w 16 -b 256 -u 50
+    # /boot.sh
+    state: started
+    etc_hosts:
+      elasticsearch: "{{ hostvars[groups['k8s_master'][0]]['secondary_ip'] if ('secondary_ip' in hostvars[groups['k8s_master'][0]]) else hostvars[groups['k8s_master'][0]]['ansible_default_ipv4']['address'] }}"
+    labels:
+      org.label-schema.group: logging
+    volumes:
+     - "/var/log/journal:/var/log/journal:ro"
+     - "/var/lib/stack-data/logstash:/var/lib/logstash:z"
+     - "/etc/logstash:/usr/share/logstash/pipeline:ro"
+     - "/sys:/sys:ro"
+    ports:
+    - "5044:5044"
+    - "9554:9554"
+    # - "9500:9500"
+    # - "9500:9500/udp"
+    - "9600:9600"
+    - "9514:9514/udp"
+    # - "9599:9599/udp"
+    - "9699:9699/udp"
+    env:
+        LOGSPOUT: "ignore"
+        ES_JAVA_OPTS: "-Xms1g -Xmx1g"
+
+# docker run -d --restart always \
+#     -v /var/log/journal:/var/log/journal:ro \
+#     -v /var/lib/stack-data/logstash:/var/lib/logstash:z \
+#     -v /etc/logstash:/usr/share/logstash/pipeline:ro \
+#     -v /sys:/sys:ro \
+#     -p 5044:5044 \
+#     -p 9514:9514 \
+#     -p 9514:9514/udp \
+#     -p 9600:9600 \
+#     -p 9699:9699 \
+#     --name elk_logstash \
+#     -e LOGSPOUT=ignore \
+#     -e ES_JAVA_OPTS="-Xms4g -Xmx4g" \
+#     --add-host elasticsearch:10.1.0.13 \
+#     gitlab.catalyst.net.nz:4567/piers/logging-and-monitoring/logstash-with-config:6.2.4 \
+#     logstash -f /usr/share/logstash/pipeline/logstash.conf -r -w 8 -b 8192 -u 5 --debug
+
+
+# https://github.com/sivasamyk/logtrail
+# /usr/share/kibana/bin/kibana-plugin  install https://github.com/sivasamyk/logtrail/releases/download/0.1.8/logtrail-5.2.0-0.1.8.zip
+
+
+
+
+# install Prometheus
+
+- name: prometheus remove containers
+  docker_container:
+    name: "{{ item }}"
+    state: absent
+  with_items:
+    - prometheus
+    - alertmanager
+    - grafana
+
+- name: Creates directory /var/lib/prometheus-data
+  file: path=/var/lib/prometheus-data state=directory mode=0755
+
+- name: Creates directory /var/lib/prometheus-data/grafana
+  file:
+    path: /var/lib/prometheus-data/grafana
+    state: directory
+    mode: 0777
+
+- name: Creates directory /etc/prometheus/static_configs
+  file: path=/etc/prometheus/static_configs state=directory
+
+
+- name: /etc/prometheus/prometheus.yml
+  template: 
+    src: prometheus.yml.j2
+    dest: /etc/prometheus/prometheus.yml
+  register: updateprometheus
+
+
+- name: /etc/prometheus/containers.rules
+  copy:
+    content: |-
+      # ALERT jenkins_down
+      #   IF absent(container_memory_usage_bytes{name="jenkins"})
+      #   FOR 30s
+      #   LABELS { severity = "critical" }
+      #   ANNOTATIONS {
+      #     summary= "Jenkins down",
+      #     description= "Jenkins container is down for more than 30 seconds."
+      #   }
+
+      #  ALERT jenkins_high_cpu
+      #   IF sum(rate(container_cpu_usage_seconds_total{name="jenkins"}[1m])) / count(node_cpu{mode="system"}) * 100 > 10
+      #   FOR 30s
+      #   LABELS { severity = "warning" }
+      #   ANNOTATIONS {
+      #     summary= "Jenkins high CPU usage",
+      #     description= "Jenkins CPU usage is {{ '{{' }} humanize $value{{ '}}' }}%."
+      #   }
+
+      # ALERT jenkins_high_memory
+      #   IF sum(container_memory_usage_bytes{name="jenkins"}) > 1200000000
+      #   FOR 30s
+      #   LABELS { severity = "warning" }
+      #   ANNOTATIONS {
+      #       summary = "Jenkins high memory usage",
+      #       description = "Jenkins memory consumption is at {{ '{{' }} humanize $value{{ '}}' }}.",
+      # }
+    force: yes
+    dest: /etc/prometheus/containers.rules
+  register: updateprometheus
+
+- name: /etc/prometheus/host.rules
+  copy:
+    content: |-
+      # ALERT high_cpu_load
+      #   IF node_load1 > 1.5
+      #   FOR 30s
+      #   LABELS { severity = "warning" }
+      #   ANNOTATIONS {
+      #       summary = "Server under high load",
+      #       description = "Docker host is under high load, the avg load 1m is at {{ '{{' }} $value{{ '}}' }}. Reported by instance {{ '{{' }} $labels.instance {{ '}}' }} of job {{ '{{' }} $labels.job {{ '}}' }}.",
+      #   }
+
+      # ALERT high_memory_load
+      #   IF (sum(node_memory_MemTotal) - sum(node_memory_MemFree + node_memory_Buffers + node_memory_Cached) ) / sum(node_memory_MemTotal) * 100 > 85
+      #   FOR 30s
+      #   LABELS { severity = "warning" }
+      #   ANNOTATIONS {
+      #       summary = "Server memory is almost full",
+      #       description = "Docker host memory usage is {{ '{{' }} humanize $value{{ '}}' }}%. Reported by instance {{ '{{' }} $labels.instance {{ '}}' }} of job {{ '{{' }} $labels.job {{ '}}' }}.",
+      #   }
+
+      # ALERT hight_storage_load
+      #   IF (node_filesystem_size{fstype="aufs"} - node_filesystem_free{fstype="aufs"}) / node_filesystem_size{fstype="aufs"}  * 100 > 85
+      #   FOR 30s
+      #   LABELS { severity = "warning" }
+      #   ANNOTATIONS {
+      #       summary = "Server storage is almost full",
+      #       description = "Docker host storage usage is {{ '{{' }} humanize $value{{ '}}' }}%. Reported by instance {{ '{{' }} $labels.instance {{ '}}' }} of job {{ '{{' }} $labels.job {{ '}}' }}.",
+      # }
+    force: yes
+    dest: /etc/prometheus/host.rules
+  register: updateprometheus
+
+- name: /etc/prometheus/targets.rules
+  copy:
+    content: |-
+      # ALERT monitor_service_down
+      #   IF up == 0
+      #   FOR 30s
+      #   LABELS { severity = "critical" }
+      #   ANNOTATIONS {
+      #       summary = "Monitor service non-operational",
+      #       description = "Service {{ '{{' }} $labels.instance {{ '}}' }} is down.",
+      #   }
+    force: yes
+    dest: /etc/prometheus/targets.rules
+  register: updateprometheus
+
+# - name: Update node_export config
+#   blockinfile: dest=/etc/prometheus/static_configs/nodeexporter.yaml block="{{ lookup('file', './prometheus_nodeexporter.yaml') }}"
+#               state=present create=yes
+#   register: updateconfig
+#   become: true
+
+# - name: Update cadvisor config
+#   blockinfile: dest=/etc/prometheus/static_configs/cadvisor.yaml block="{{ lookup('file', './prometheus_cadvisor.yaml') }}"
+#               state=present create=yes
+#   register: updateconfig
+#   become: true
+
+# - name: Update docker config
+#   blockinfile: dest=/etc/prometheus/static_configs/docker.yaml block="{{ lookup('file', './prometheus_docker.yaml') }}"
+#               state=present create=yes
+#   register: updateconfig
+#   become: true
+
+# - name: Update process config
+#   blockinfile: dest=/etc/prometheus/static_configs/process.yaml block="{{ lookup('file', './prometheus_process.yaml') }}"
+#               state=present create=yes
+#   register: updateconfig
+#   become: true
+
+# - name: ensure Prometheus restarts
+#   shell: /usr/bin/docker restart prometheus
+#   when: updateconfig.changed
+#   become: true
+
+- name: Creates directory /var/lib/prometheus-data/prometheus
+  file: path=/var/lib/prometheus-data/prometheus state=directory mode=0777
+
+- name: docker pull images
+  docker_image:
+    state: present
+    pull: true
+    name: "{{ item }}"
+  with_items:
+    - prom/prometheus:latest
+    # - prom/alertmanager:latest
+    - grafana/grafana:latest
+
+- name: Restart a Prometheus
+  docker_container:
+    name: prometheus
+    restart_policy: always
+    image: prom/prometheus:latest
+    # command: "--config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/prometheus-data --alertmanager.url=http://alertmanager-url:9093 --storage.local.memory-chunks=10000000"
+    command: "--config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/prometheus-data --web.listen-address=0.0.0.0:9090 "
+    state: started
+    labels:
+      org.label-schema.group: monitoring
+    volumes:
+     - "/var/lib/prometheus-data/prometheus:/prometheus-data"
+     - "/etc/prometheus:/etc/prometheus"
+    ports:
+    - "9090:9090"
+
+- name: Creates directory /var/lib/prometheus-data/grafana
+  file: path=/var/lib/prometheus-data/grafana state=directory
+
+- name: Restart a Grafana
+  docker_container:
+    name: grafana
+    restart_policy: always
+    image: grafana/grafana:latest
+    state: started
+    labels:
+      org.label-schema.group: monitoring
+    volumes:
+     - "/var/lib/prometheus-data/grafana:/var/lib/grafana"
+    ports:
+    - "3000:3000"
+    env:
+        GF_SECURITY_ADMIN_USER: admin
+        GF_SECURITY_ADMIN_PASSWORD: changeme
+        GF_USERS_ALLOW_SIGN_UP: "false"
+
+

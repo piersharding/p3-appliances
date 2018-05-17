@@ -3,8 +3,7 @@
 
 - name: Setup Keys
   hosts:
-    - shared_services_controller
-    - shared_services_compute
+    - cluster
   become: yes
 
   vars:

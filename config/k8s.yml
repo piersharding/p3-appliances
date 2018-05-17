@@ -26,13 +26,13 @@ cluster_groups:
   - "{{ k8s_minion }}"
 
 k8s_master:
-  name: "controller"
+  name: "master"
   flavor: "compute-A"
   image: "Ubuntu16"
   num_nodes: 1
 
 k8s_minion:
-  name: "compute"
+  name: "minion"
   flavor: "compute-A"
   image: "Ubuntu16"
   num_nodes: 3

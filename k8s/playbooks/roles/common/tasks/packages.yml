@@ -1,3 +1,6 @@
+- name: add go repo
+  apt_repository:
+    repo: ppa:longsleep/golang-backports
 
 - name: Ensure required packages are installed (apt)
   apt:
@@ -17,6 +20,21 @@
 
 - name: Start the NTP service
   service: name={{ ntp_service }} state=started enabled=yes
+    
+- name: Add the dm_thin_pool module
+  modprobe:
+    name: dm_thin_pool
+    state: present
+
+- name: Enable iscsi initiator
+  lineinfile:
+    regexp: '^node.startup ='
+    line: 'node.startup = automatic'
+    path: /etc/iscsi/iscsid.conf
+
+- name: ensure iscsid restarts
+  service: name=iscsid state=restarted enabled=yes
+  become: true
 
 - name: Set nofile limits
   lineinfile: dest=/etc/security/limits.conf
@@ -78,24 +96,24 @@
   - en_US.UTF-8
   - en_NZ.UTF-8
 
-- name: Add apt key for local repository
-  apt_key:
-    keyserver: keyserver.ubuntu.com
-    id: "{{ local_repo_signing_key }}"
+# - name: Add apt key for local repository
+#   apt_key:
+#     keyserver: keyserver.ubuntu.com
+#     id: "{{ local_repo_signing_key }}"
 
 # DNS must resolve from hosts first
-- name: Configure dnsmasq
-  lineinfile:
-    path: /etc/dnsmasq.conf
-    line: "{{ item }}"
-    regexp: "^{{ item }}$"
-    create: no
-    state: present
-  with_items:
-    - "interface=lo"
-    - "listen-address=127.0.0.1"
-    - "bind-interfaces"
-  notify: restart dnsmasq
+# - name: Configure dnsmasq
+#   lineinfile:
+#     path: /etc/dnsmasq.conf
+#     line: "{{ item }}"
+#     regexp: "^{{ item }}$"
+#     create: no
+#     state: present
+#   with_items:
+#     - "interface=lo"
+#     - "listen-address=127.0.0.1"
+#     - "bind-interfaces"
+#   notify: restart dnsmasq
 
 - name: Load Infiniband kernel drivers
   modprobe:
@@ -155,3 +173,4 @@
 #     state: up
 
 - meta: flush_handlers
+

@@ -1,9 +1,0 @@
----
-
-- name: Set the host grouping
-  set_fact:
-    host_grouping: "{% if not inventory_hostname in groups['shared_services_compute'] %}compute{% else %}controller{% endif %}"
-
-
-- meta: flush_handlers
-

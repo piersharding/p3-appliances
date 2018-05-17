@@ -1,0 +1,107 @@
+input {
+  beats {
+    port => 5044
+    #type => "metrics"
+  }
+}
+input {
+  udp {
+    port => 9514
+    codec => "json"
+    type => "rsyslog"
+  }
+  tcp {
+    port => 9514
+    codec => "json"
+    type => "rsyslog"
+  }
+}
+input {
+  beats {
+    port => 9554
+    #codec => "json"
+    type => "rsyslog"
+  }
+}
+#input {
+#  udp {
+#    port => 9599
+#    codec => "json"
+#    type => "container"
+#  }
+#}
+input {
+  udp {
+    port => 9699         # 25826 matches port specified in collectd.conf
+    buffer_size => 1452   # 1452 is the default buffer size for Collectd
+    codec => collectd { } # specific Collectd codec to invoke
+    type => "collectd" 
+  }
+}
+#filter {
+#    metrics {
+#        meter => "events"
+#        add_tag => "metric"
+#        flush_interval => 60
+#    }
+#}
+
+filter {
+  if [type] == "collectd" {
+      mutate {
+        convert => { "value" => "integer" }
+      }
+  }
+}
+
+output {
+  # stdout { codec => rubydebug }
+  if "_grokparsefailure" in [tags] or "_jsonparsefailure" in [tags] {
+      kafka {
+        bootstrap_servers => "{{ kafka_master.hostname }}:9092"
+        codec => json
+        acks => "1"
+        topic_id => "parse-err"
+      }
+  }
+  if [type] == "rsyslog" {
+      kafka {
+        bootstrap_servers => "{{ kafka_master.hostname }}:9092,worker1:9092,worker2:9092"
+        codec => json
+        topic_id => "rsyslog"
+        compression_type => "snappy"
+        acks => "0"
+        max_request_size => 10485760
+        batch_size => 32768
+        buffer_memory => 335544320
+      }
+  }
+#  if [type] == "collectd" {
+#      kafka {
+#        bootstrap_servers => "{{ kafka_master.hostname }}:9092,worker1:9092,worker2:9092"
+#        codec => json
+#        acks => "0"
+#        topic_id => "collectd"
+#      }
+#  }
+  if [type] == "metricsets" {
+      # stdout { codec => rubydebug }
+      kafka {
+        bootstrap_servers => "{{ kafka_master.hostname }}:9092,worker1:9092,worker2:9092"
+        codec => json
+        topic_id => "metricsets"
+        compression_type => "snappy"
+        acks => "0"
+      }
+  }
+}
+
+#output {
+#    if "metric" in [tags] {
+#        stdout {
+#            codec => line {
+#                format => "1m rate: %{[events][rate_1m]} (%{[events][count]})"
+#            }
+#        }
+#    }
+#}

@@ -1,0 +1,88 @@
+
+metricbeat.modules:
+- module: docker
+  metricsets: ["container", "cpu", "diskio", "healthcheck", "info", "memory", "network"]
+  hosts: ["unix:///var/run/docker.sock"]
+  enabled: true
+  period: 10s
+
+# Node metrics, from kubelet:
+- module: kubernetes
+  metricsets:
+    - node
+    - system
+    - pod
+    - container
+    - volume
+  period: 10s
+  hosts: ["{{ inventory_hostname }}:10255"]
+
+{% if inventory_hostname in groups['k8s_master'] %}
+# State metrics from kube-state-metrics service:
+- module: kubernetes
+  enabled: true
+  metricsets:
+    - state_node
+    - state_deployment
+    - state_replicaset
+    - state_pod
+    - state_container
+  period: 10s
+  hosts: ["{{ kube_state_metrics_clusterip }}:8080"]
+
+# Kubernetes events
+- module: kubernetes
+  enabled: false
+  metricsets:
+    - event
+{% endif %}
+
+- module: system
+  metricsets:
+    # CPU stats
+    - cpu
+
+    # System Load stats
+    - load
+
+    # Per CPU core stats
+    - core
+
+    # IO stats
+    - diskio
+
+    # Per filesystem stats
+    - filesystem
+
+    # File system summary stats
+    - fsstat
+
+    # Memory stats
+    - memory
+
+    # Network stats
+    - network
+
+    # Per process stats
+    - process
+
+    # Sockets (linux only)
+    #- socket
+  enabled: true
+  period: 10s
+  processes: ['.*']
+
+{% if item.setup %}
+output.elasticsearch:
+  hosts: ["{{ groups['k8s_master'][0] }}:9200"]
+{% else %}
+output.logstash:
+# The Logstash hosts
+  hosts: ["{{ groups['k8s_master'][0] }}:5044"]
+  index: metricbeat
+{% endif %}
+
+logging.level: info
+
+logging.selectors: ["*"]
+

@@ -31,11 +31,11 @@ packages:
   - jq
   - linux-tools-common
   - linux-tools-generic
-  - libjemalloc1
-  - libjemalloc-dev
+  # - libjemalloc1
+  # - libjemalloc-dev
   - reprepro
   - expect
-  - dnsmasq
+  # - dnsmasq
   - rdmacm-utils
   - build-essential 
   - g++
@@ -55,8 +55,11 @@ packages:
   - ibverbs-utils
   - rdmacm-utils
   - perftest
+  - lvm2
   - tgt
   - targetcli
+  - open-iscsi
+  - golang-go
   # - python-rados
   # - python3-rados
 
@@ -65,4 +68,8 @@ update_grub: "/usr/sbin/update-grub"
 ntp_service: ntp
 ntp_sync: "/usr/sbin/ntpd -gq"
 
-local_repo_signing_key: x
+# local_repo_signing_key: x
+
+docker_repo: "k8s-master-0:5000"
+
+docker_swarm_port: 2377

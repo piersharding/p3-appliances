@@ -1,0 +1,4 @@
+  - hostPath:
+      path: /etc/kubernetes/webhook/webhook.kubeconfig
+      type: File
+    name: k8s-webhook

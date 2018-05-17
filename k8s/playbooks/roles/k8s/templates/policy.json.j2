@@ -1,0 +1,84 @@
+[
+  {
+    "resource": {
+      "verbs": [
+        "get",
+        "list",
+        "watch"
+      ],
+      "resources": [
+        "pods"
+      ],
+      "version": "*",
+      "namespace": "default"
+    },
+    "match": [
+      {
+        "type": "role",
+        "values": [
+          "k8s-admin",
+          "k8s-viewer",
+          "k8s-editor",
+          "heat_stack_owner"
+        ]
+      },
+      {
+        "type": "project",
+        "values": [
+          "c1f7910086964990847dc6c8b128f63c",
+          "{{ provider_tenant_id }}"
+        ]
+      }
+    ]
+  },
+  {
+    "resource": {
+      "verbs": [
+        "get",
+        "list",
+        "watch",
+        "apply",
+        "logs",
+        "patch",
+        "replace",
+        "edit",
+        "delete",
+        "scale"
+      ],
+      "resources": [
+        "pods",
+        "deployments",
+        "nodes",
+        "replicasets",
+        "secrets",
+        "roles",
+        "services",
+        "statefulsets",
+        "namespaces",
+        "jobs",
+        "daemonsets",
+        "events",
+        "endpoints",
+        "cronjobs",
+        "daemonsets",
+        "configmaps"
+      ],
+      "version": "*",
+      "namespace": "*"
+    },
+    "match": [
+      {
+        "type": "role",
+        "values": [
+          "heat_stack_owner"
+        ]
+      },
+      {
+        "type": "project",
+        "values": [
+          "{{ provider_tenant_id }}"
+        ]
+      }
+    ]
+  }
+]

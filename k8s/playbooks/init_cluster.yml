@@ -1,0 +1,254 @@
+#!/usr/bin/env ansible-playbook
+---
+
+- name: "Show debug info"
+  hosts:
+    - k8s_master
+    - k8s_minion
+  become: yes
+  become_method: sudo
+  tasks:
+    - name: "Show nodes info"
+      debug: var=hostvars[inventory_hostname]
+      when: debug
+
+    - name: set cluster API address.
+      set_fact:
+        # cluster_api_address: "{{ hostvars[groups['k8s_master'][0]].ansible_default_ipv4.address }}"
+        cluster_api_address: "{{ hostvars[groups['k8s_master'][0]]['secondary_ip'] if ('secondary_ip' in hostvars[groups['k8s_master'][0]]) else hostvars[groups['k8s_master'][0]]['ansible_default_ipv4']['address'] }}"
+      # when: "inventory_hostname in groups['k8s_master']"
+
+    - name:
+      stat: path=/etc/kubernetes/admin.conf
+      register: admin_conf
+      delegate_to: "{{ groups['k8s_master'][0] }}"
+      delegate_facts: True
+
+    - name: "Show cluster_api_address"
+      debug: var=cluster_api_address
+      when: debug
+
+    - name: Check if "Cluster is active" is enabled.
+      shell: kubectl --kubeconfig=/etc/kubernetes/admin.conf version
+      changed_when: False
+      register: kubectl_version
+      ignore_errors: true
+      delegate_to: "{{ groups['k8s_master'][0] }}"
+      delegate_facts: True
+      # when: "inventory_hostname in groups['k8s_master']"
+      tags:
+        - skip_ansible_lint # Suppressing the linter
+
+    - name: "Show kubectl_version"
+      debug: var=kubectl_version
+      when: debug
+
+    - name: Init Cluster on the first master.
+      shell: /usr/bin/kubeadm init 
+            --pod-network-cidr=192.168.0.0/16 
+            --apiserver-advertise-address {{ cluster_api_address }}
+      when: "kubectl_version.stdout.find('Server Version:') == -1
+        and inventory_hostname in groups['k8s_master']"
+      tags:
+        - skip_ansible_lint # Suppressing the linter
+
+    - name: Wait for API Server to come up
+      wait_for:
+        host: "{{ cluster_api_address }}"
+        port: 6443
+        delay: 10
+
+    - name: retrieve kubectl config
+      fetch: src="/etc/kubernetes/admin.conf" dest="/tmp/admin.conf" flat=yes
+      when: "inventory_hostname in groups['k8s_master']"
+
+    - name: Ensure the /home/ubuntu/.kube directory exists
+      file:
+        path: /home/ubuntu/.kube
+        state: directory
+        mode: 0700
+        owner: ubuntu
+        group: ubuntu
+
+    - name: Setup kubectl config
+      copy:
+        src: /tmp/admin.conf
+        dest: /home/ubuntu/.kube/config
+        mode: 0644
+        owner: ubuntu
+        group: ubuntu
+
+    - name: Check if "Networking is active"
+      shell: kubectl --kubeconfig=/etc/kubernetes/admin.conf get deployment calico-kube-controllers --namespace kube-system
+      changed_when: False
+      register: kubectl_calico
+      ignore_errors: true
+      delegate_to: "{{ groups['k8s_master'][0] }}"
+      delegate_facts: True
+      # when: "inventory_hostname in groups['k8s_master']"
+      tags:
+        - skip_ansible_lint # Suppressing the linter
+
+    - name: "Show kubectl_calico"
+      debug: var=kubectl_calico
+      when: debug
+
+    - name: Init Cluster networking on the first master.
+      shell: kubectl --kubeconfig=/etc/kubernetes/admin.conf 
+             apply -f /home/ubuntu/calico-3.1.yaml
+      when: "not kubectl_calico.rc == 0
+        and inventory_hostname in groups['k8s_master']"
+      tags:
+        - skip_ansible_lint # Suppressing the linter
+
+    - name: Wait for Networking to come up
+      shell: "kubectl --kubeconfig=/etc/kubernetes/admin.conf get pods --field-selector 'status.phase!=Running' --namespace kube-system"
+      register: calico_check
+      until: calico_check.stdout_lines | reject('search','^No resources found') | list | count == 0
+      retries: 10
+      delay: 30
+      # delegate_to: "{{ groups['k8s_master'][0] }}"
+      when: "inventory_hostname in groups['k8s_master']"
+
+    - name: Get Join token
+      shell: /usr/bin/kubeadm token list | grep -v TOKEN | head -1 | awk '{print $1}'
+      changed_when: False
+      register: kubectl_token
+      ignore_errors: true
+      delegate_to: "{{ groups['k8s_master'][0] }}"
+      delegate_facts: True
+      when: "not inventory_hostname in groups['k8s_master']"
+      tags:
+        - skip_ansible_lint # Suppressing the linter
+
+    - name: "Show kubectl_token"
+      debug: var=kubectl_token
+      when: debug
+
+    - name: Check already joined
+      shell: "kubectl --kubeconfig=/etc/kubernetes/admin.conf get nodes | grep {{ inventory_hostname }}"
+      changed_when: False
+      register: kubectl_joined
+      ignore_errors: true
+      delegate_to: "{{ groups['k8s_master'][0] }}"
+      delegate_facts: True
+      # when: "inventory_hostname in groups['k8s_master']"
+      tags:
+        - skip_ansible_lint # Suppressing the linter
+
+    - name: "Show kubectl_joined"
+      debug: var=kubectl_joined
+      when: debug
+
+    - name: Init minions.
+      shell: "/usr/bin/kubeadm join 
+             --token {{ kubectl_token.stdout }} {{ cluster_api_address }}:6443
+             --discovery-token-unsafe-skip-ca-verification"
+      when: "not inventory_hostname in groups['k8s_master']
+             and (kubectl_joined.stdout_lines | list | count == 0)"
+      tags:
+        - skip_ansible_lint # Suppressing the linter
+
+    - name: Ensure the /etc/kubernetes/manifests directory exists
+      file:
+        path: /etc/kubernetes/manifests
+        state: directory
+        mode: 0755
+      when: "not inventory_hostname in groups['k8s_master']"
+
+    - name: Check joining
+      shell: "kubectl --kubeconfig=/etc/kubernetes/admin.conf get nodes | grep {{ inventory_hostname }}"
+      changed_when: False
+      register: kubectl_joined
+      delegate_to: "{{ groups['k8s_master'][0] }}"
+      when: "not inventory_hostname in groups['k8s_master']"
+      tags:
+        - skip_ansible_lint # Suppressing the linter
+
+    - name: "Show kubectl_joined"
+      debug: var=kubectl_joined
+      when: debug
+
+    - name: Wait for nodes to join
+      shell: "kubectl --kubeconfig=/etc/kubernetes/admin.conf get nodes  | grep {{ inventory_hostname }}"
+      register: calico_check
+      until: calico_check|success
+      retries: 10
+      delay: 30
+      delegate_to: "{{ groups['k8s_master'][0] }}"
+      when: "not inventory_hostname in groups['k8s_master']"
+
+    - name: Wait for calico to settle
+      shell: "kubectl --kubeconfig=/etc/kubernetes/admin.conf get pods --field-selector 'status.phase!=Running' --namespace kube-system"
+      register: calico_check
+      until: calico_check.stdout_lines | reject('search','^No resources found') | list | count == 0
+      retries: 10
+      delay: 30
+      when: "inventory_hostname in groups['k8s_master']"
+
+    - name: /home/ubuntu/busybox.yml
+      copy:
+        content: |-
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: busybox
+            namespace: default
+            annotations:
+              scheduler.alpha.kubernetes.io/affinity: >
+                {
+                  "nodeAffinity": {
+                    "requiredDuringSchedulingIgnoredDuringExecution": {
+                      "nodeSelectorTerms": [
+                        {
+                          "matchExpressions": [
+                            {
+                              "key": "kubernetes.io/hostname",
+                              "operator": "NotIn",
+                              "values": ["k8smaster"]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                }
+          spec:
+            containers:
+            - image: busybox
+              command:
+                - sleep
+                - "3600"
+              imagePullPolicy: IfNotPresent
+              name: busybox
+            restartPolicy: Always
+
+        force: yes
+        dest: /home/ubuntu/busybox.yml
+
+    - name: Check if busybox is up
+      shell: kubectl --kubeconfig=/etc/kubernetes/admin.conf get pod busybox
+      changed_when: False
+      register: kubectl_busbox
+      ignore_errors: true
+      when: "inventory_hostname in groups['k8s_master']"
+      tags:
+        - skip_ansible_lint # Suppressing the linter
+
+    - name: Launch busybox
+      shell: kubectl --kubeconfig=/etc/kubernetes/admin.conf 
+             apply -f /home/ubuntu/busybox.yml
+      when: "inventory_hostname in groups['k8s_master']
+             and not kubectl_busbox.rc == 0"
+      tags:
+        - skip_ansible_lint # Suppressing the linter
+
+    - name: Wait for busybox to come up
+      shell: "kubectl --kubeconfig=/etc/kubernetes/admin.conf get pods --field-selector 'status.phase!=Running' --all-namespaces"
+      register: busybox_check
+      until: busybox_check.stdout_lines | reject('search','^No resources found') | list | count == 0
+      retries: 10
+      delay: 30
+      # delegate_to: "{{ groups['k8s_master'][0] }}"
+      when: "inventory_hostname in groups['k8s_master']"
+

@@ -1,5 +1,0 @@
----
-# elastic_logstash1: 127.0.0.1
-
-# set to true to show host variables
-debug: false

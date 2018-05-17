@@ -1,0 +1,317 @@
+---
+
+- include_tasks: "tasks/k8s_master_main.yml"
+  when: inventory_hostname in groups['k8s_master']
+
+
+- name: Ensure required docker packages are installed (apt)
+  apt:
+    name: "{{ item }}"
+    update_cache: yes
+    state: installed
+  with_items:
+  - python-pip
+  - python3-pip
+
+- name: install docker dependencies
+  pip:
+    name: docker-py
+
+
+- meta: flush_handlers
+
+
+- name: download https://artifacts.elastic.co/downloads/beats/metricbeat/metricbeat-6.2.4-amd64.deb
+  get_url:
+    url: https://artifacts.elastic.co/downloads/beats/metricbeat/metricbeat-6.2.4-amd64.deb
+    dest: /var/tmp/metricbeat-6.2.4-amd64.deb
+
+- name: Install /var/tmp/metricbeat-6.2.4-amd64.deb package
+  apt:
+    deb: /var/tmp/metricbeat-6.2.4-amd64.deb
+  register: updatemetricbeat
+
+# curl -G --data-urlencode 'match[]={job=~".+"}' http://10.111.1.11:9090/federate
+# GET /federate?match[]=%7Bjob%3D~%22.%2B%22%7D HTTP/1.1
+
+- name: ensure metricbeat is stopped
+  service: name=metricbeat state=stopped enabled=yes
+  become: true
+
+- name: metricbeat files
+  template:
+    src: metricbeat.yml.j2
+    dest: "/etc/metricbeat/{{ item.target }}.yml"
+    owner: root
+    group: root
+    force: yes
+    mode: 0644
+  with_items:
+    - { target: setup, setup: true }
+    - { target: metricbeat, setup: false }
+  register: updatemetricbeatsetup
+
+- name: fix dashboards
+  replace:
+    path: "/usr/share/metricbeat/kibana/6/dashboard/{{ item.path }}"
+    regexp: "{{ item.regexp }}"
+    replace: "{{ item.replace }}"
+  with_items:
+    - { regexp: '"docker\.container\.name\\"', replace: '"docker.container.name.keyword\\"', path: "Metricbeat-docker-overview.json" }
+    - { regexp: '"docker\.container\.id\\"', replace: '"docker.container.id.keyword\\"', path: "Metricbeat-docker-overview.json" }
+    - { regexp: '"docker\.container\.image\\"', replace: '"docker.container.image.keyword\\"', path: "Metricbeat-docker-overview.json" }
+    - { regexp: '"beat\.name\\"', replace: '"beat.name.keyword\\"', path: "Metricbeat-docker-overview.json" }
+    - { regexp: '"beat\.hostname\\"', replace: '"beat.hostname.keyword\\"', path: "Metricbeat-docker-overview.json" }
+    - { regexp: '"docker\.container\.name\\"', replace: '"docker.container.name.keyword\\"', path: "Metricbeat-containers-overview.json" }
+    - { regexp: '"system\.process\.name\\"', replace: '"system.process.name.keyword\\"', path: "Metricbeat-containers-overview.json" }
+    - { regexp: '"system\.process\.cgroup\.id\\"', replace: '"system.process.cgroup.id.keyword\\"', path: "Metricbeat-containers-overview.json" }
+    - { regexp: '"beat\.name\\"', replace: '"beat.name.keyword\\"', path: "Metricbeat-system-overview.json" }
+    - { regexp: '"system\.network\.name\\"', replace: '"system.network.name.keyword\\"', path: "Metricbeat-system-overview.json" }
+    - { regexp: '"beat\.name\\"', replace: '"beat.name.keyword\\"', path: "Metricbeat-host-overview.json" }
+    - { regexp: '"system\.filesystem\.mount_point\\"', replace: '"system.filesystem.mount_point.keyword\\"', path: "Metricbeat-host-overview.json" }
+    - { regexp: '"system\.process\.name\\"', replace: '"system.process.name.keyword\\"', path: "Metricbeat-host-overview.json" }
+    - { regexp: '"system\.network\.name\\"', replace: '"system.network.name.keyword\\"', path: "Metricbeat-host-overview.json" }
+    - { regexp: '"kubernetes\.node\.name\\"', replace: '"kubernetes.node.name.keyword\\"', path: "Metricbeat-kubernetes-overview.json" }
+    - { regexp: '"kubernetes\.deployment\.name\\"', replace: '"kubernetes.deployment.name.keyword\\"', path: "Metricbeat-kubernetes-overview.json" }
+    - { regexp: '"kubernetes\.pod\.name\\"', replace: '"kubernetes.pod.name.keyword\\"', path: "Metricbeat-kubernetes-overview.json" }
+    # - { regexp: '"state_node\\"', replace: '"node\\"', path: "Metricbeat-kubernetes-overview.json" }
+  register: updatemetricbeatsetup
+
+# - name: fix docker dashboard reference to docker.container.name
+#   replace:
+#     path: /usr/share/metricbeat/kibana/6/dashboard/Metricbeat-docker-overview.json
+#     regexp: '"docker\.container\.name\\"'
+#     replace: '"docker.container.name.keyword\\"'
+#   register: updatemetricbeatsetup
+
+# - name: fix docker dashboard reference to docker.container.id
+#   replace:
+#     path: /usr/share/metricbeat/kibana/6/dashboard/Metricbeat-docker-overview.json
+#     regexp: '"docker\.container\.id\\"'
+#     replace: '"docker.container.id.keyword\\"'
+#   register: updatemetricbeatsetup
+
+# - name: fix docker dashboard reference to docker.container.image
+#   replace:
+#     path: /usr/share/metricbeat/kibana/6/dashboard/Metricbeat-docker-overview.json
+#     regexp: '"docker\.container\.image\\"'
+#     replace: '"docker.container.image.keyword\\"'
+#   register: updatemetricbeatsetup
+
+# - name: fix docker dashboard reference to beat.name
+#   replace:
+#     path: /usr/share/metricbeat/kibana/6/dashboard/Metricbeat-docker-overview.json
+#     regexp: '"beat\.name\\"'
+#     replace: '"beat.name.keyword\\"'
+#   register: updatemetricbeatsetup
+
+# - name: fix docker dashboard reference to beat.hostname
+#   replace:
+#     path: /usr/share/metricbeat/kibana/6/dashboard/Metricbeat-docker-overview.json
+#     regexp: '"beat\.hostname\\"'
+#     replace: '"beat.hostname.keyword\\"'
+#   register: updatemetricbeatsetup
+
+# - name: fix container dashboard reference to docker.container.name
+#   replace:
+#     path: /usr/share/metricbeat/kibana/6/dashboard/Metricbeat-containers-overview.json
+#     regexp: '"docker\.container\.name\\"'
+#     replace: '"docker.container.name.keyword\\"'
+#   register: updatemetricbeatsetup
+
+# - name: fix container dashboard reference to system.process.name
+#   replace:
+#     path: /usr/share/metricbeat/kibana/6/dashboard/Metricbeat-containers-overview.json
+#     regexp: '"system\.process\.name\\"'
+#     replace: '"system.process.name.keyword\\"'
+#   register: updatemetricbeatsetup
+
+# - name: fix container dashboard reference to system.process.cgroup.id
+#   replace:
+#     path: /usr/share/metricbeat/kibana/6/dashboard/Metricbeat-containers-overview.json
+#     regexp: '"system\.process\.cgroup\.id\\"'
+#     replace: '"system.process.cgroup.id.keyword\\"'
+#   register: updatemetricbeatsetup
+
+# - name: fix system dashboard reference to beat.name
+#   replace:
+#     path: /usr/share/metricbeat/kibana/6/dashboard/Metricbeat-system-overview.json
+#     regexp: '"beat\.name\\"'
+#     replace: '"beat.name.keyword\\"'
+#   register: updatemetricbeatsetup
+
+# - name: fix system dashboard reference to system.network.name
+#   replace:
+#     path: /usr/share/metricbeat/kibana/6/dashboard/Metricbeat-system-overview.json
+#     regexp: '"system\.network\.name\\"'
+#     replace: '"system.network.name.keyword\\"'
+#   register: updatemetricbeatsetup
+
+# - name: fix host dashboard reference to beat.name
+#   replace:
+#     path: /usr/share/metricbeat/kibana/6/dashboard/Metricbeat-host-overview.json
+#     regexp: '"beat\.name\\"'
+#     replace: '"beat.name.keyword\\"'
+#   register: updatemetricbeatsetup
+
+# - name: fix host dashboard reference to system.filesystem.mount_point
+#   replace:
+#     path: /usr/share/metricbeat/kibana/6/dashboard/Metricbeat-host-overview.json
+#     regexp: '"system\.filesystem\.mount_point\.name\\"'
+#     replace: '"system.filesystem.mount_point.keyword\\"'
+#   register: updatemetricbeatsetup
+
+# - name: fix host dashboard reference to system.process.name
+#   replace:
+#     path: /usr/share/metricbeat/kibana/6/dashboard/Metricbeat-host-overview.json
+#     regexp: '"system\.process\.name\\"'
+#     replace: '"system.process.name.keyword\\"'
+#   register: updatemetricbeatsetup
+
+# - name: fix host dashboard reference to system.network.name
+#   replace:
+#     path: /usr/share/metricbeat/kibana/6/dashboard/Metricbeat-host-overview.json
+#     regexp: '"system\.network\.name\\"'
+#     replace: '"system.network.name.keyword\\"'
+#   register: updatemetricbeatsetup
+
+- name: Load metricbeat setup
+  shell: metricbeat --path.config /etc/metricbeat -c setup.yml setup
+  delegate_to: "{{ groups['k8s_master'][0] }}"
+  when: "updatemetricbeatsetup.changed
+         and inventory_hostname in groups['k8s_master']"
+
+- name: ensure metricbeat restarts
+  service: name=metricbeat state=restarted enabled=yes
+  become: true
+
+- name: Log into private registry
+  docker_login:
+    registry: gitlab.catalyst.net.nz:4567
+    username: "{{ docker_user }}"
+    password: "{{ docker_password }}"
+
+- name: nodes remove containers
+  docker_container:
+    name: "{{ item }}"
+    state: absent
+  with_items:
+    - nodeexporter
+    - cadvisor
+    - pexporter
+
+- name: docker pull images
+  docker_image:
+    name: "{{ item.name }}"
+    tag: "{{ item.tag }}"
+    pull: true
+    state: present
+  with_items:
+    - name: prom/node-exporter
+      # tag: master
+      tag: latest
+    - name: google/cadvisor
+      tag: latest
+    - name: gitlab.catalyst.net.nz:4567/piers/logging-and-monitoring/process-exporter
+      tag: latest
+    # - name: journalbeat_image
+    #   tag: latest
+
+# - name: Restart a nodeexporter
+#   command: "docker run --name nodeexporter --restart=always --runtime=runc --label org.label-schema.group=monitoring --publish 9100:9100 -v /var/lib/node_exporter/textfile_collector:/textfiles:ro -v /proc:/host/proc -v /sys:/host/sys -v /:/rootfs --net=host --pid=host -d prom/node-exporter:latest --collector.textfile.directory /textfiles --path.procfs /host/proc --path.sysfs /host/sys --collector.filesystem.ignored-mount-points \"^/(sys|proc|dev|host|etc|rootfs/var/lib/docker|rootfs/run/docker)($|/)\""
+
+
+- name: Restart a nodeexporter
+  docker_container:
+    name: nodeexporter
+    restart_policy: always
+    image: "prom/node-exporter:latest"
+    # image: "prom/node-exporter:master"
+    state: started
+    network_mode: host
+    pid_mode: host
+    command: "--collector.textfile.directory /textfiles --path.procfs /host/proc --path.sysfs /host/sys --collector.filesystem.ignored-mount-points \"^/(sys|proc|dev|host|etc|rootfs/var/lib/docker|rootfs/run/docker|sys/kernel/debug|rootfs/sys/kernel/debug/tracing)($|/)\""
+    volumes:
+     - "/var/lib/node_exporter/textfile_collector:/textfiles:ro"
+     - "/proc:/host/proc"
+     - "/sys:/host/sys"
+     - "/:/rootfs"
+     # - "/etc/node-exporter:/etc/node-exporter"
+    labels:
+      org.label-schema.group: monitoring
+    ports:
+      - "9100:9100"
+
+
+# - name: Restart a cadvisor
+#   command: "docker run --name cadvisor --restart=always --runtime=runc --label org.label-schema.group=monitoring --publish 8081:8080 -v /:/rootfs:ro -v /var/run:/var/run:rw -v /sys:/sys:ro -v /var/lib/docker/:/var/lib/docker:ro --net=host -d google/cadvisor:latest -port 8081 -disable_metrics disk"
+
+- name: Restart a cadvisor
+  docker_container:
+    name: cadvisor
+    restart_policy: always
+    image: "google/cadvisor:latest"
+    command: -port 8081 -disable_metrics disk
+    state: started
+    network_mode: host
+    labels:
+      org.label-schema.group: monitoring
+    volumes:
+     - "/:/rootfs:ro"
+     - "/var/run:/var/run:rw"
+     - "/sys:/sys:ro"
+     - "/var/lib/docker/:/var/lib/docker:ro"
+    ports:
+    - "8081:8080"
+
+# - name: Restart a process-exporter
+#   command: "docker run --name pexporter --restart=always --privileged --runtime=runc --label org.label-schema.group=monitoring --publish 9256:9256 -v /proc:/host/proc -d gitlab.catalyst.net.nz:4567/piers/logging-and-monitoring/process-exporter:latest -procfs /host/proc -procnames dockerd,rsyslogd,qemu-lite-syste,ksmd,docker-containe,cc-shim,mesos-agent,nginx,docker-proxy,dcos-log,dcos-metrics,dcos-diagnostic"
+
+- name: Restart a process-exporter
+  docker_container:
+    name: pexporter
+    restart_policy: always
+    image: "gitlab.catalyst.net.nz:4567/piers/logging-and-monitoring/process-exporter:latest"
+    command: "-procfs /host/proc -procnames dockerd,rsyslogd,qemu-lite-syste,ksmd,docker-containe"
+    state: started
+    privileged: yes
+    labels:
+      org.label-schema.group: monitoring
+    volumes:
+     - "/proc:/host/proc"
+    ports:
+    - "9256:9256"
+
+# install and bootstrap journalbeat
+- name: download journalbeat
+  get_url:
+    url: "{{ journalbeat_url }}"
+    dest: /usr/bin/journalbeat
+    owner: root
+    group: root
+    mode: 0755
+
+- name: journalbeat config file
+  template:
+    src: journalbeat.yml.j2
+    dest: "/etc/journalbeat.yml"
+    owner: root
+    group: root
+    force: yes
+    mode: 0644
+  register: updatejournalbeatsetup
+
+- name: Configure journalbeat server
+  template:
+    src: journalbeat.service.j2
+    dest: "/lib/systemd/system/journalbeat.service"
+    owner: root
+    group: root
+    force: yes
+    mode: 0644
+  notify:
+    - reload systemd
+    - restart journalbeat
+
+- meta: flush_handlers
+

@@ -1,45 +1,66 @@
 
-- name: Build ceph volume groups
-  lvg:
-    vg: "{{ item.vg }}"
-    pvs: "{{ item.pvs }}"
-  with_items:
-    - vg: ceph_vg1
-      pvs: /dev/sdb
-    - vg: ceph_vg2
-      pvs: /dev/sdc
-    - vg: ceph_vg3
-      pvs: /dev/sdd
+- name: Format docker lib
+  filesystem:
+    fstype: xfs
+    dev: /dev/sdb
 
-- name: Verify or create a striped LV1_1
-  lvol:
-    lv: "{{ item.lv }}"
-    vg: "{{ item.vg }}"
-    # pvs: /dev/sdb
-    state: present
-    active: yes
-    shrink: no
-    # opts: "-i 3 --stripesize 8"
-    size: "{{ item.size }}"
-  with_items:
-    - lv: ceph_data1_1
-      vg: ceph_vg1
-      size: "50%FREE"
-    - lv: ceph_data1_2
-      vg: ceph_vg1
-      size: "100%FREE"
-    - lv: ceph_data2_1
-      vg: ceph_vg2
-      size: "50%FREE"
-    - lv: ceph_data2_2
-      vg: ceph_vg2
-      size: "100%FREE"
-    - lv: ceph_data3_1
-      vg: ceph_vg3
-      size: "50%FREE"
-    - lv: ceph_data3_2
-      vg: ceph_vg3
-      size: "100%FREE"
+- name: Ensure the /var/lib/docker directory mountpoint exists
+  file:
+    path: /var/lib/docker
+    state: directory
+
+- name: mount docker lib
+  mount:
+    name: /var/lib/docker
+    src: /dev/sdb
+    opts: defaults,noatime
+    dump: 0
+    passno: 0
+    fstype: xfs
+    state: mounted
+
+
+# - name: Build data volume groups
+#   lvg:
+#     vg: "{{ item.vg }}"
+#     pvs: "{{ item.pvs }}"
+#   with_items:
+#     - vg: data_vg1
+#       pvs: /dev/sdb
+#     - vg: data_vg2
+#       pvs: /dev/sdc
+#     - vg: data_vg3
+#       pvs: /dev/sdd
+
+# - name: Verify or create a striped LV1_1
+#   lvol:
+#     lv: "{{ item.lv }}"
+#     vg: "{{ item.vg }}"
+#     # pvs: /dev/sdb
+#     state: present
+#     active: yes
+#     shrink: no
+#     # opts: "-i 3 --stripesize 8"
+#     size: "{{ item.size }}"
+#   with_items:
+#     - lv: data_data1_1
+#       vg: data_vg1
+#       size: "50%FREE"
+#     - lv: data_data1_2
+#       vg: data_vg1
+#       size: "100%FREE"
+#     - lv: data_data2_1
+#       vg: data_vg2
+#       size: "50%FREE"
+#     - lv: data_data2_2
+#       vg: data_vg2
+#       size: "100%FREE"
+#     - lv: data_data3_1
+#       vg: data_vg3
+#       size: "50%FREE"
+#     - lv: data_data3_2
+#       vg: data_vg3
+#       size: "100%FREE"
 
 
 # - name: umount data1 lib

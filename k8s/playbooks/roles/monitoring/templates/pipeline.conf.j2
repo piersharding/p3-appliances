@@ -1,0 +1,125 @@
+input {
+  beats {
+    port => 5044
+    #type => "metrics"
+    tags => ["metricbeat"]
+  }
+}
+input {
+  udp {
+    port => 9514
+    codec => "json"
+    type => "rsyslog"
+  }
+  tcp {
+    port => 9514
+    codec => "json"
+    type => "rsyslog"
+  }
+}
+input {
+  beats {
+    port => 9554
+    #codec => "json"
+    type => "journalbeat"
+    tags => ["journalbeat"]
+  }
+}
+#input {
+#  udp {
+#    port => 9599
+#    codec => "json"
+#    type => "container"
+#  }
+#}
+input {
+  udp {
+    port => 9699         # 25826 matches port specified in collectd.conf
+    buffer_size => 1452   # 1452 is the default buffer size for Collectd
+    codec => collectd { } # specific Collectd codec to invoke
+    type => "collectd" 
+  }
+}
+#filter {
+#    metrics {
+#        meter => "events"
+#        add_tag => "metric"
+#        flush_interval => 60
+#    }
+#}
+
+filter {
+  if [type] == "collectd" {
+      mutate {
+        convert => { "value" => "integer" }
+      }
+  }
+}
+
+
+#filter {
+#    metrics {
+#        meter => "events"
+#        add_tag => "metric"
+#        flush_interval => 60
+#    }
+#}
+
+output {
+  # stdout { codec => rubydebug }
+  if "_grokparsefailure" in [tags] or "_jsonparsefailure" in [tags] {
+    elasticsearch {
+      hosts => ["elasticsearch:9200"]
+#      user => "logstash_internal"
+#      password => "changeme"
+      index => "parse-err-%{+YYYY.MM.dd}"
+    }
+  }
+  if [type] == "rsyslog" {
+    elasticsearch { 
+      hosts => ["elasticsearch:9200"] 
+#      user => "logstash_internal"
+#      password => "changeme"
+      index => "rsyslog-%{+YYYY.MM.dd}"
+    }
+  }
+#  if [type] == "collectd" {
+#    elasticsearch { 
+#      hosts => ["elasticsearch:9200"] 
+##      user => "logstash_internal"
+##      password => "changeme"
+#      index => "collectd-%{+YYYY.MM.dd}"
+#    }
+#  }
+#  if [type] == "metricsets" {
+  if "metricbeat" in [tags] {
+      # stdout { codec => rubydebug }
+
+    elasticsearch { 
+      hosts => ["elasticsearch:9200"] 
+#      user => "logstash_internal"
+#      password => "changeme"
+      index => "metricbeat-%{+YYYY.MM.dd}"
+    }
+  }
+  if "journalbeat" in [tags] {
+      # stdout { codec => rubydebug }
+
+    elasticsearch { 
+      hosts => ["elasticsearch:9200"] 
+#      user => "logstash_internal"
+#      password => "changeme"
+      index => "journalbeat-%{+YYYY.MM.dd}"
+    }
+  }
+}
+
+#output {
+#    if "metric" in [tags] {
+#        stdout {
+#            codec => line {
+#                format => "1m rate: %{[events][rate_1m]} (%{[events][count]})"
+#            }
+#        }
+#    }
+#}

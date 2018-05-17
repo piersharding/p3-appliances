@@ -1,10 +1,9 @@
-
 [k8s-client:children]
 k8s_master
 
 [shared-node:children]
-shared_services_compute
+k8s_minion
 
 [shared-nodes:children]
-shared_services_controller
-shared_services_compute
+k8s_master
+k8s_minion

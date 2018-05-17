@@ -1,4 +1,9 @@
 
+- name: Set the host grouping
+  set_fact:  
+    host_grouping: "{% if inventory_hostname != groups['k8s_master'][0] %}master{% else %}worker{% endif %}"
+
+
 - name: Install packages required for docker
   apt:
     name: "{{ item }}"
@@ -65,7 +70,7 @@
   args:
     creates: /var/lib/docker/cleand_by_ansible
   notify:
-    - Start docker
+    - restart docker
 #   when: installeddocker.changed
 
 - name: Update apt cache
@@ -77,10 +82,103 @@
     name: docker-ce
     state: latest
   notify:
-    - Start docker
+    - restart docker
 
 - name: Add ubuntu user to docker group
   user:
     name: ubuntu
     append: yes
     groups: docker
+
+# - name: Set the host grouping
+#   set_fact:
+#     host_grouping: "{% if not inventory_hostname in groups['k8s_minion'] %}minion{% else %}master{% endif %}"
+
+- name: Create /etc/systemd/system/docker.service.d
+  file:
+    path: "/etc/systemd/system/docker.service.d"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Configure docker server
+  template: src=docker.conf.j2 dest="/etc/systemd/system/docker.service.d/docker.conf"
+  notify:
+    - reload systemd
+    - restart docker
+
+- meta: flush_handlers
+
+# - name: Create /etc/systemd/system/docker.service.d
+#   file: 
+#     path: "/etc/systemd/system/docker.service.d"
+#     state: directory
+#     owner: root
+#     group: root
+#     mode: "0755"
+
+# - name: Configure docker server
+#   template: src=docker.conf.j2 dest="/etc/systemd/system/docker.service.d/docker.conf"
+#   notify:
+#     - Reload systemd
+#     - Restart docker
+
+# - meta: flush_handlers
+
+- name: set swarm address.
+  set_fact:
+    docker_swarm_addr: "{{ hostvars[inventory_hostname].ansible_default_ipv4.address }}"
+  # when: "inventory_hostname != groups['k8s_master'][0]"
+
+- name: Check if "Swarm Mode" is enabled.
+  shell: docker info
+  changed_when: False
+  register: docker_info
+  tags:
+    - skip_ansible_lint # Suppressing the linter
+
+- name: Init "Swarm Mode" on the first manager.
+  shell: docker swarm init
+        --listen-addr {{ docker_swarm_addr }}:{{ docker_swarm_port }}
+        --advertise-addr {{ docker_swarm_addr }}
+  when: "docker_info.stdout.find('Swarm: active') == -1
+    and inventory_hostname in groups['k8s_master']"
+  tags:
+    - skip_ansible_lint # Suppressing the linter
+
+
+- name: Get the worker join-token.
+  shell: docker swarm join-token -q worker
+  changed_when: False
+  register: docker_worker_token
+  delegate_to: "{{ groups['k8s_master'][0] }}"
+  delegate_facts: True
+  when: inventory_hostname in groups['k8s_minion']
+  tags:
+    - skip_ansible_lint # Suppressing the linter
+
+
+- name: Declare the address of the first Swarm manager as a fact.
+  set_fact:
+    docker_manager_address: "{{ docker_swarm_addr }}:{{ docker_swarm_port }}"
+  when: "inventory_hostname == groups['k8s_master'][0]"
+
+- name: Distribute the fact containing address of the first Swarm manager.
+  set_fact:
+    docker_manager_address: "{{hostvars[groups['k8s_master'][0]].ansible_default_ipv4.address }}"
+  when: "inventory_hostname != groups['k8s_master'][0]"
+
+- name: Join the pending Swarm worker nodes.
+  shell: docker swarm join
+        --listen-addr {{ docker_swarm_addr }}:{{ docker_swarm_port }}
+        --advertise-addr {{ docker_swarm_addr }}
+        --token "{{ docker_worker_token.stdout }}"
+        {{ docker_manager_address }}
+  changed_when: False
+  when: "docker_info.stdout.find('Swarm: active') == -1
+    and docker_info.stdout.find('Swarm: pending') == -1
+    and 'k8s_minion' in group_names"
+  tags:
+    - skip_ansible_lint # Suppressing the linter
+

@@ -1,0 +1,16 @@
+[Global]
+#auth-url={{ provider_auth_url }}
+#username={{ provider_username }}
+#password={{ provider_password }}
+#region={{ provider_region }}
+#tenant-id={{ provider_tenant_id }}
+#domain-name={{ provider_domain_name }}
+cinder-endpoint=http://{{ cluster_api_address }}:8776/v2
+username={{ cinder_username }}
+tenant-name={{ cinder_tenant_name }}
+
+#[LoadBalancer]
+## kolla-subnet ID
+#subnet-id={{ provider_subnet_id }}
+## ID of public-net
+##floating-network-id=849ab1e9-7ac5-4618-8801-e6176fbbcf30
