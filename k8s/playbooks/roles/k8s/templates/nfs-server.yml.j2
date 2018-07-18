@@ -1,0 +1,77 @@
+#---
+#kind: PersistentVolumeClaim
+#apiVersion: v1
+#metadata:
+#  name: nfs-server-pvc
+#spec:
+#  accessModes:
+#    - ReadWriteOnce
+#  resources:
+#    requests:
+#      storage: 10Gi # pass here the size of the volume
+#  storageClassName: cinder-standard
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: nfs-server
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: nfs-server
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/master: ""
+      tolerations:
+      - key: node.cloudprovider.kubernetes.io/uninitialized
+        value: "true"
+        effect: NoSchedule
+      - key: node-role.kubernetes.io/master
+        effect: NoSchedule
+      containers:
+      - name: nfs-server
+        image: itsthenetwork/nfs-server-alpine:latest
+        ports:
+          - name: nfs
+            containerPort: 2049
+          - name: mountd
+            containerPort: 20048
+          - name: rpcbind
+            containerPort: 111
+          - name: rpcbind-udp
+            containerPort: 111
+            protocol: UDP
+        securityContext:
+          privileged: true
+        env:
+          - name: SHARED_DIRECTORY
+            value: /arl
+        volumeMounts:
+          - name: nfsshare
+            mountPath: /arl
+      volumes:
+        - name: nfsshare
+          hostPath:
+            path: /home/ubuntu/algorithm-reference-library/
+            type: DirectoryOrCreate
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: nfs-server
+spec:
+  clusterIP: 10.96.0.111
+  ports:
+    - name: nfs
+      port: 2049
+    - name: mountd
+      port: 20048
+    - name: rpcbind
+      port: 111
+    - name: rpcbind-udp
+      port: 111
+      protocol: UDP
+  selector:
+    app: nfs-server

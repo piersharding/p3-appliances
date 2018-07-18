@@ -20,6 +20,46 @@
 
 - meta: flush_handlers
 
+- name: download https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-6.2.4-amd64.deb
+  get_url:
+    url: https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-6.2.4-amd64.deb
+    dest: /var/tmp/filebeat-6.2.4-amd64.deb
+
+- name: Install /var/tmp/filebeat-6.2.4-amd64.deb package
+  apt:
+    deb: /var/tmp/filebeat-6.2.4-amd64.deb
+  register: updatemetricbeat
+
+# curl -G --data-urlencode 'match[]={job=~".+"}' http://10.111.1.11:9090/federate
+# GET /federate?match[]=%7Bjob%3D~%22.%2B%22%7D HTTP/1.1
+
+- name: ensure filebeat is stopped
+  service: name=filebeat state=stopped enabled=yes
+  become: true
+
+- name: filebeat files
+  template:
+    src: filebeat.yml.j2
+    dest: "/etc/filebeat/{{ item.target }}.yml"
+    owner: root
+    group: root
+    force: yes
+    mode: 0644
+  with_items:
+    - { target: setup, setup: true }
+    - { target: filebeat, setup: false }
+  register: updatefilebeatsetup
+
+- name: Load filebeat setup
+  shell: filebeat --path.config /etc/filebeat -c setup.yml setup
+  delegate_to: "{{ groups['k8s_master'][0] }}"
+  when: "updatefilebeatsetup.changed
+         and inventory_hostname in groups['k8s_master']"
+
+- name: ensure filebeat is started
+  service: name=filebeat state=started enabled=yes
+  become: true
+
 
 - name: download https://artifacts.elastic.co/downloads/beats/metricbeat/metricbeat-6.2.4-amd64.deb
   get_url:
@@ -76,104 +116,6 @@
     - { regexp: '"kubernetes\.pod\.name\\"', replace: '"kubernetes.pod.name.keyword\\"', path: "Metricbeat-kubernetes-overview.json" }
     # - { regexp: '"state_node\\"', replace: '"node\\"', path: "Metricbeat-kubernetes-overview.json" }
   register: updatemetricbeatsetup
-
-# - name: fix docker dashboard reference to docker.container.name
-#   replace:
-#     path: /usr/share/metricbeat/kibana/6/dashboard/Metricbeat-docker-overview.json
-#     regexp: '"docker\.container\.name\\"'
-#     replace: '"docker.container.name.keyword\\"'
-#   register: updatemetricbeatsetup
-
-# - name: fix docker dashboard reference to docker.container.id
-#   replace:
-#     path: /usr/share/metricbeat/kibana/6/dashboard/Metricbeat-docker-overview.json
-#     regexp: '"docker\.container\.id\\"'
-#     replace: '"docker.container.id.keyword\\"'
-#   register: updatemetricbeatsetup
-
-# - name: fix docker dashboard reference to docker.container.image
-#   replace:
-#     path: /usr/share/metricbeat/kibana/6/dashboard/Metricbeat-docker-overview.json
-#     regexp: '"docker\.container\.image\\"'
-#     replace: '"docker.container.image.keyword\\"'
-#   register: updatemetricbeatsetup
-
-# - name: fix docker dashboard reference to beat.name
-#   replace:
-#     path: /usr/share/metricbeat/kibana/6/dashboard/Metricbeat-docker-overview.json
-#     regexp: '"beat\.name\\"'
-#     replace: '"beat.name.keyword\\"'
-#   register: updatemetricbeatsetup
-
-# - name: fix docker dashboard reference to beat.hostname
-#   replace:
-#     path: /usr/share/metricbeat/kibana/6/dashboard/Metricbeat-docker-overview.json
-#     regexp: '"beat\.hostname\\"'
-#     replace: '"beat.hostname.keyword\\"'
-#   register: updatemetricbeatsetup
-
-# - name: fix container dashboard reference to docker.container.name
-#   replace:
-#     path: /usr/share/metricbeat/kibana/6/dashboard/Metricbeat-containers-overview.json
-#     regexp: '"docker\.container\.name\\"'
-#     replace: '"docker.container.name.keyword\\"'
-#   register: updatemetricbeatsetup
-
-# - name: fix container dashboard reference to system.process.name
-#   replace:
-#     path: /usr/share/metricbeat/kibana/6/dashboard/Metricbeat-containers-overview.json
-#     regexp: '"system\.process\.name\\"'
-#     replace: '"system.process.name.keyword\\"'
-#   register: updatemetricbeatsetup
-
-# - name: fix container dashboard reference to system.process.cgroup.id
-#   replace:
-#     path: /usr/share/metricbeat/kibana/6/dashboard/Metricbeat-containers-overview.json
-#     regexp: '"system\.process\.cgroup\.id\\"'
-#     replace: '"system.process.cgroup.id.keyword\\"'
-#   register: updatemetricbeatsetup
-
-# - name: fix system dashboard reference to beat.name
-#   replace:
-#     path: /usr/share/metricbeat/kibana/6/dashboard/Metricbeat-system-overview.json
-#     regexp: '"beat\.name\\"'
-#     replace: '"beat.name.keyword\\"'
-#   register: updatemetricbeatsetup
-
-# - name: fix system dashboard reference to system.network.name
-#   replace:
-#     path: /usr/share/metricbeat/kibana/6/dashboard/Metricbeat-system-overview.json
-#     regexp: '"system\.network\.name\\"'
-#     replace: '"system.network.name.keyword\\"'
-#   register: updatemetricbeatsetup
-
-# - name: fix host dashboard reference to beat.name
-#   replace:
-#     path: /usr/share/metricbeat/kibana/6/dashboard/Metricbeat-host-overview.json
-#     regexp: '"beat\.name\\"'
-#     replace: '"beat.name.keyword\\"'
-#   register: updatemetricbeatsetup
-
-# - name: fix host dashboard reference to system.filesystem.mount_point
-#   replace:
-#     path: /usr/share/metricbeat/kibana/6/dashboard/Metricbeat-host-overview.json
-#     regexp: '"system\.filesystem\.mount_point\.name\\"'
-#     replace: '"system.filesystem.mount_point.keyword\\"'
-#   register: updatemetricbeatsetup
-
-# - name: fix host dashboard reference to system.process.name
-#   replace:
-#     path: /usr/share/metricbeat/kibana/6/dashboard/Metricbeat-host-overview.json
-#     regexp: '"system\.process\.name\\"'
-#     replace: '"system.process.name.keyword\\"'
-#   register: updatemetricbeatsetup
-
-# - name: fix host dashboard reference to system.network.name
-#   replace:
-#     path: /usr/share/metricbeat/kibana/6/dashboard/Metricbeat-host-overview.json
-#     regexp: '"system\.network\.name\\"'
-#     replace: '"system.network.name.keyword\\"'
-#   register: updatemetricbeatsetup
 
 - name: Load metricbeat setup
   shell: metricbeat --path.config /etc/metricbeat -c setup.yml setup
@@ -312,6 +254,13 @@
   notify:
     - reload systemd
     - restart journalbeat
+
+- name: Prune indexes script
+  copy:
+    src: prune_stack.sh
+    dest: /home/ubuntu/prune_stack.sh
+    mode: 0755
+
 
 - meta: flush_handlers
 

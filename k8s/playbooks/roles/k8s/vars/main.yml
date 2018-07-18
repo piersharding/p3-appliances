@@ -1,5 +1,7 @@
 ---
 
+docker_repo: "k8s-master-0:5000"
+
 kubeadm_version: 1.8.1-01
 kubelet_version: 1.8.1-01
 kubectl_version: 1.8.1-00

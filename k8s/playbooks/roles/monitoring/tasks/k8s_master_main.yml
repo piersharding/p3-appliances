@@ -118,16 +118,6 @@
     value: 1
     state: present
 
-- name: masquerade for tunnelling
-  iptables:
-    table: nat
-    chain: POSTROUTING
-    protocol: tcp
-    source: 10.0.8.0/24
-    jump: MASQUERADE
-    out_interface: "{{ k8s_interface }}"
-    comment: Ansible masquerade rule for ppp
-
 - name: Creates directory /var/lib/stack-data/elasticsearch
   file: 
     path: /var/lib/stack-data/elasticsearch
@@ -251,11 +241,12 @@
      - "/sys:/sys:ro"
     ports:
     - "5044:5044"
+    - "5045:5045"
     - "9554:9554"
     # - "9500:9500"
     # - "9500:9500/udp"
-    - "9600:9600"
-    - "9514:9514/udp"
+    # - "9600:9600"
+    # - "9514:9514/udp"
     # - "9599:9599/udp"
     - "9699:9699/udp"
     env:

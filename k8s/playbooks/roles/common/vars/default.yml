@@ -60,6 +60,9 @@ packages:
   - targetcli
   - open-iscsi
   - golang-go
+  - nfs-common
+  - nfs4-acl-tools
+  - nfs-client
   # - python-rados
   # - python3-rados
 

@@ -6,15 +6,11 @@ input {
   }
 }
 input {
-  udp {
-    port => 9514
-    codec => "json"
-    type => "rsyslog"
-  }
-  tcp {
-    port => 9514
-    codec => "json"
-    type => "rsyslog"
+  beats {
+    port => 5045
+    #codec => "json"
+    type => "filebeat"
+    tags => ["filebeat"]
   }
 }
 input {
@@ -25,13 +21,7 @@ input {
     tags => ["journalbeat"]
   }
 }
-#input {
-#  udp {
-#    port => 9599
-#    codec => "json"
-#    type => "container"
-#  }
-#}
+
 input {
   udp {
     port => 9699         # 25826 matches port specified in collectd.conf
@@ -100,6 +90,16 @@ output {
 #      user => "logstash_internal"
 #      password => "changeme"
       index => "metricbeat-%{+YYYY.MM.dd}"
+    }
+  }
+  if "filebeat" in [tags] {
+      # stdout { codec => rubydebug }
+
+    elasticsearch { 
+      hosts => ["elasticsearch:9200"] 
+#      user => "logstash_internal"
+#      password => "changeme"
+      index => "filebeat-%{+YYYY.MM.dd}"
     }
   }
   if "journalbeat" in [tags] {

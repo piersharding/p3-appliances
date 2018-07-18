@@ -196,6 +196,8 @@ test_dns:
 # kubectl describe pod iperf3-client | grep -e 'Node:|IP:'
 # kubectl delete deployment iperf3-server
 
+# docker run -d --name nfs --privileged -p 2049:2049 -v /home/ubuntu/algorithm-reference-library/:/arl -e SHARED_DIRECTORY=/arl itsthenetwork/nfs-server-alpine:latest
+# mount -t nfs4 10.60.253.47:/ /mnt
 
 # do all the following sequentially!!!
 # https://medium.com/@arthur.souzamiranda/kubernetes-with-openstack-cloud-provider-current-state-and-upcoming-changes-part-1-of-2-48b161ea449a

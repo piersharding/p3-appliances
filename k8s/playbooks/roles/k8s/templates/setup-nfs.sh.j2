@@ -1,0 +1,24 @@
+#!/bin/sh
+
+cd /home/ubuntu
+if [ -d algorithm-reference-library ]; then
+  echo "We already have the ARL"
+else
+  git clone https://github.com/piersharding/algorithm-reference-library.git
+fi
+cd algorithm-reference-library
+sudo add-apt-repository -y ppa:git-core/ppa
+curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
+sudo apt-get install -y git-lfs
+sudo git lfs install
+
+git lfs pull
+
+kubectl apply -f nfs-server.yml
+sleep 10
+kubectl apply -f nfs-test.yml
+
+
+# docker run -d --name nfs --privileged -p 2049:2049 \
+#  -v /home/ubuntu/algorithm-reference-library/:/arl \
+#  -e SHARED_DIRECTORY=/arl itsthenetwork/nfs-server-alpine:latest

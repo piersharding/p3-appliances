@@ -32,7 +32,7 @@
   tags:
     - monitoring
 
-- name: "Apply the cinder role to the K8s master"
+- name: "Apply the cinder role to the k8s master"
   hosts:
     - k8s_master
   become: yes
@@ -41,7 +41,7 @@
   tags:
     - cinder
 
-- name: "Apply the shared role to the K8s nodes"
+- name: "Apply the k8s role to the k8s nodes"
   hosts:
     - k8s_master
     - k8s_minion
@@ -50,3 +50,38 @@
     - k8s
   tags:
     - k8s
+
+# - name: "Oneoffs"
+#   hosts:
+#     - k8s_master
+#   tags:
+#     - fix
+#   become: yes
+#   tasks:
+
+#     - name: Log into private registry
+#       docker_login:
+#         registry: gitlab.catalyst.net.nz:4567
+#         username: "{{ docker_user }}"
+#         password: "{{ docker_password }}"
+
+#     - name: Remove Kibana
+#       docker_container:
+#         name: "{{ item }}"
+#         state: absent
+#       with_items:
+#         - elk_kibana
+
+#     - name: Restart a Kibana
+#       docker_container:
+#         name: elk_kibana
+#         restart_policy: always
+#         image: "gitlab.catalyst.net.nz:4567/piers/logging-and-monitoring/kibana-with-logtrail:6.2.4"
+#         command: "kibana -e http://{{ ansible_default_ipv4.address }}:9200"
+#         state: started
+#         etc_hosts:
+#           elasticsearch: "{{ hostvars[groups['k8s_master'][0]]['secondary_ip'] if ('secondary_ip' in hostvars[groups['k8s_master'][0]]) else hostvars[groups['k8s_master'][0]]['ansible_default_ipv4']['address'] }}"
+#         labels:
+#           org.label-schema.group: monitoring
+#         ports:
+#         - "5601:5601"

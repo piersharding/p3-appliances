@@ -2,6 +2,7 @@ version: "2"
 services:
     rabbitmq:
         image: rabbitmq
+        restart: always
         ports:
           - "5672:5672"
         hostname: rabbitmq
@@ -10,6 +11,7 @@ services:
                 ipv4_address: 172.49.49.5
     mariadb:
         image: mariadb
+        restart: always
         hostname: mariadb
         environment:
           - MYSQL_ROOT_PASSWORD=password
@@ -23,6 +25,7 @@ services:
             - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
     cinder-api:
         image: gitlab.catalyst.net.nz:4567/piers/logging-and-monitoring/ubuntu-xenial-cinder
+        restart: always
         hostname: cinder-api
         volumes:
             - ./etc:/etc/cinder
@@ -40,6 +43,7 @@ services:
         command: sh /scripts/cinder-api.sh
     cinder-scheduler:
         image: gitlab.catalyst.net.nz:4567/piers/logging-and-monitoring/ubuntu-xenial-cinder
+        restart: always
         hostname: cinder-scheduler
         volumes:
             - ./etc:/etc/cinder
@@ -57,6 +61,7 @@ services:
         command: cinder-scheduler
     cinder-volume:
         image: gitlab.catalyst.net.nz:4567/piers/logging-and-monitoring/lvm-ubuntu-xenial-cinder
+        restart: always
         hostname: cinder-lvm
         privileged: true
         volumes:

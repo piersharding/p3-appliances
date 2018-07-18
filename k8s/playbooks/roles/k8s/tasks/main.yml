@@ -10,6 +10,82 @@
     cluster_api_address: "{{ hostvars[groups['k8s_master'][0]]['secondary_ip'] if ('secondary_ip' in hostvars[groups['k8s_master'][0]]) else hostvars[groups['k8s_master'][0]]['ansible_default_ipv4']['address'] }}"
   # when: "inventory_hostname in groups['k8s_master']"
 
+- name: Add kubernetes DNS
+  lineinfile:
+    line: 'nameserver 10.96.0.10\nsearch default.svc.cluster.local'
+    dest: /etc/resolvconf/resolv.conf.d/head
+    create: yes
+    owner: root
+    group: root
+    mode: 0644
+  register: flushresolveconf
+
+- name: Flush resolvconf
+  shell: /sbin/resolvconf -u
+  when: flushresolveconf.changed
+
+# required for k8s ipvs proxy
+- name: Load ipvs kernel drivers
+  modprobe:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - ip_vs_sh
+    - nf_conntrack_ipv4
+    - ip_vs
+    - ip_vs_rr
+    - ip_vs_wrr
+
+- name: Install packages required for docker
+  apt:
+    name: "{{ item }}"
+    state: latest
+  with_items:
+    - apt-transport-https
+    - ca-certificates
+    - "linux-image-extra-{{ ansible_kernel }}"
+    - linux-image-extra-virtual
+    - aufs-tools
+
+- name: Add dockerproject apt key
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+
+- name: Add dockerproject apt source
+  lineinfile:
+    line: 'deb [arch=amd64] https://download.docker.com/linux/ubuntu xenial stable'
+    dest: /etc/apt/sources.list.d/docker.list
+    create: yes
+    owner: root
+    group: root
+    mode: 0644
+  register: installeddocker
+
+- name: Update apt cache
+  apt:
+    update_cache: yes
+
+- name: Install docker ce
+  apt:
+    name: docker-ce
+    state: latest
+  notify:
+    - restart docker
+
+- name: Add ubuntu user to docker group
+  user:
+    name: ubuntu
+    append: yes
+    groups: docker
+
+- name: Configure docker server
+  template: src=docker.conf.j2 dest="/etc/systemd/system/docker.service.d/docker.conf"
+  notify:
+    - reload systemd
+    - restart docker
+
+- meta: flush_handlers
+
 
 - name: Add k8s apt key
   apt_key:
@@ -656,6 +732,20 @@
 
 - meta: flush_handlers
 
+- name: Configure nfs-server
+  template: src=nfs-server.yml.j2 dest="/home/ubuntu/nfs-server.yml"
+  when: inventory_hostname in groups['k8s_master']
+
+- name: nfs test
+  template: src=nfs-test.yml.j2 dest="/home/ubuntu/nfs-test.yml"
+  when: inventory_hostname in groups['k8s_master']
+
+- name: Configure nfs-server setup
+  template: src=setup-nfs.sh.j2 dest="/home/ubuntu/setup-nfs.sh"
+  mode: 0755
+  when: inventory_hostname in groups['k8s_master']
+
+
 # Role issues
 # https://github.com/fabric8io/fabric8/issues/6840
 
@@ -756,18 +846,33 @@
 # docker run -ti --net=host -v /etc/kubernetes/pki:/etc/kubernetes/pki -v /etc/ssl/certs:/etc/ssl/certs -v /etc/kubernetes/controller-manager.conf:/etc/kubernetes/controller-manager.conf -v /usr/libexec/kubernetes/kubelet-plugins/volume/exec:/usr/libexec/kubernetes/kubelet-plugins/volume/exec -v /etc/kubernetes/cloud.conf:/etc/kubernetes/cloud.conf --rm docker.io/k8scloudprovider/openstack-cloud-controller-manager:latest /bin/openstack-cloud-controller-manager --v=2 --cloud-config=/etc/kubernetes/cloud.conf --cloud-provider=openstack --use-service-account-credentials=true --address=127.0.0.1 --kubeconfig=/etc/kubernetes/controller-manager.conf
 
 
+- name: Configure ghost-device-plugin
+  template: src=ghost-device-plugin.yml.j2 dest="/home/ubuntu/ghost-device-plugin.yml"
+  when: inventory_hostname in groups['k8s_master']
 
+- name: Configure ghost-device-plugin widget
+  template: src=widget.yml.j2 dest="/etc/kubernetes/widget.yml"
 
+- name: Check if ghost-device-plugin is active
+  shell: kubectl --kubeconfig=/etc/kubernetes/admin.conf get daemonset standalone-ghost-device-plugin-provisioner -n kube-system
+  changed_when: False
+  register: kubectl_ghost
+  ignore_errors: true
+  delegate_to: "{{ groups['k8s_master'][0] }}"
+  delegate_facts: True
+  # when: "inventory_hostname in groups['k8s_master']"
+  tags:
+    - skip_ansible_lint # Suppressing the linter
 
-# - name: Configure API Server
-#   template: src=kube-apiserver.yaml.j2 dest="/etc/kubernetes/manifests/kube-apiserver.yaml"
-#   when: inventory_hostname in groups['k8s_master']
-#   tags:
-#     - k8s_cloud_provider
+- name: "Show kubectl_ghost"
+  debug: var=kubectl_ghost
+  when: debug
 
+- name: Init ghost-device-plugin on the first master.
+  shell: kubectl --kubeconfig=/etc/kubernetes/admin.conf 
+         apply -f /home/ubuntu/ghost-device-plugin.yml
+  when: "not kubectl_ghost.rc == 0
+    and inventory_hostname in groups['k8s_master']"
+  tags:
+    - skip_ansible_lint # Suppressing the linter
 
-# - name: Configure KCM
-#   template: src=kube-controller-manager.yaml.j2 dest="/etc/kubernetes/manifests/kube-controller-manager.yaml"
-#   when: inventory_hostname in groups['k8s_master']
-#   tags:
-#     - k8s_cloud_provider
