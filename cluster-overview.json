@@ -348,7 +348,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum by (instance, mode) (irate(node_cpu{mode=~\"system|user\"}[1m]))",
+          "expr": "sum by (instance, mode) (irate(node_cpu_seconds_total{mode=~\"system|user\"}[1m]))",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "{{instance}}: {{mode}}",
@@ -435,7 +435,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum by (instance) (irate(node_network_receive_bytes{device=\"em1\",job=\"nodeexporter\"}[5m]))",
+          "expr": "sum by (instance) (irate(node_network_receive_bytes_total{device=\"em1\",job=\"nodeexporter\"}[5m]))",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "received {{instance}}",
@@ -443,7 +443,7 @@
           "step": 2
         },
         {
-          "expr": "sum by (instance) (irate(node_network_transmit_bytes{device=\"em1\",job=\"nodeexporter\"}[5m]))",
+          "expr": "sum by (instance) (irate(node_network_transmit_bytes_total{device=\"em1\",job=\"nodeexporter\"}[5m]))",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "transmitted{{instance}}",
@@ -528,7 +528,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum by (instance) (irate(node_disk_bytes_read{job=\"nodeexporter\", device!=\"md127\"}[5m]))",
+          "expr": "sum by (instance) (irate(node_disk_read_bytes_total{job=\"nodeexporter\", device!=\"md127\"}[5m]))",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "disk reads: {{instance}}",
@@ -536,7 +536,7 @@
           "step": 2
         },
         {
-          "expr": "sum by (instance) (irate(node_disk_bytes_written{job=\"nodeexporter\", device!=\"md127\"}[5m]))",
+          "expr": "sum by (instance) (irate(node_disk_written_bytes_total{job=\"nodeexporter\", device!=\"md127\"}[5m]))",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "disk writes: {{instance}}",
@@ -621,7 +621,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum by (instance, device) (irate(node_disk_bytes_read{job=\"nodeexporter\", device!=\"md127\", instance!=\"controller\"}[5m]))",
+          "expr": "sum by (instance, device) (irate(node_disk_read_bytes_total{job=\"nodeexporter\", device!=\"md127\", instance!=\"controller\"}[5m]))",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "disk reads: {{instance}}-{{device}}",
@@ -629,7 +629,7 @@
           "step": 2
         },
         {
-          "expr": "sum by (instance, device) (irate(node_disk_bytes_written{job=\"nodeexporter\", device!=\"md127\", instance!=\"controller\"}[5m]))",
+          "expr": "sum by (instance, device) (irate(node_disk_written_bytes_total{job=\"nodeexporter\", device!=\"md127\", instance!=\"controller\"}[5m]))",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "disk writes: {{instance}}-{{device}}",
@@ -733,7 +733,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "node_memory_MemTotal{job=\"nodeexporter\"}",
+          "expr": "node_memory_MemTotal_bytes{job=\"nodeexporter\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "Total: {{instance}}",
@@ -742,7 +742,7 @@
           "step": 2
         },
         {
-          "expr": "node_memory_MemTotal{job=\"nodeexporter\"} - node_memory_MemFree{job=\"nodeexporter\"} - node_memory_Cached{job=\"nodeexporter\"} - node_memory_Buffers{job=\"nodeexporter\"} - node_memory_Slab{job=\"nodeexporter\"}",
+          "expr": "node_memory_MemTotal_bytes{job=\"nodeexporter\"} - node_memory_MemFree_bytes{job=\"nodeexporter\"} - node_memory_Cached_bytes{job=\"nodeexporter\"} - node_memory_Buffers_bytes{job=\"nodeexporter\"} - node_memory_Slab_bytes{job=\"nodeexporter\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "Used: {{instance}}",
@@ -750,7 +750,7 @@
           "step": 2
         },
         {
-          "expr": "(node_memory_SwapTotal{job=\"nodeexporter\"} - node_memory_SwapFree{job=\"nodeexporter\"})",
+          "expr": "(node_memory_SwapTotal_bytes{job=\"nodeexporter\"} - node_memory_SwapFree_bytes{job=\"nodeexporter\"})",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "Swap: {{instance}}",
@@ -934,14 +934,14 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum by (instance) (irate(node_network_receive_bytes{device=\"p3p1\",job=\"nodeexporter\"}[5m]))",
+          "expr": "sum by (instance) (irate(node_network_receive_bytes_total{device=\"p3p1\",job=\"nodeexporter\"}[5m]))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "received: {{instance}}",
           "refId": "C"
         },
         {
-          "expr": "sum by (instance) (irate(node_network_transmit_bytes{device=\"p3p1\",job=\"nodeexporter\"}[5m]))",
+          "expr": "sum by (instance) (irate(node_network_transmit_bytes_total{device=\"p3p1\",job=\"nodeexporter\"}[5m]))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "transmitted: {{instance}}",
@@ -1118,14 +1118,14 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum by (instance) (irate(node_network_receive_bytes{device=\"ib0\",job=\"nodeexporter\"}[5m]))",
+          "expr": "sum by (instance) (irate(node_network_receive_bytes_total{device=\"ib0\",job=\"nodeexporter\"}[5m]))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "received: {{instance}}",
           "refId": "C"
         },
         {
-          "expr": "sum by (instance) (irate(node_network_transmit_bytes{device=\"ib0\",job=\"nodeexporter\"}[5m]))",
+          "expr": "sum by (instance) (irate(node_network_transmit_bytes_total{device=\"ib0\",job=\"nodeexporter\"}[5m]))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "transmitted: {{instance}}",

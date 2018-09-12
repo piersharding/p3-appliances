@@ -73,6 +73,10 @@ k8s: build_hosts add_common set_iface fix build_k8s shared_ssh_keys
 iface: second_interface set_iface fix_iface
 
 
+oneoffs:
+	cd k8s && ansible-playbook -i ../ansible/inventory_k8s -i ./inventory --tags=fix playbooks/k8s.yml --extra-vars="docker_user=$(DOCKER_USER) docker_password=$(DOCKER_PASSWORD) provider_username=$(PROVIDER_USERNAME) provider_password=$(PROVIDER_PASSWORD)"
+
+
 # fix interfaces 
 # route del default gw 10.1.0.1 p3p1
 # route add default gw 10.60.210.1 em1

@@ -175,8 +175,9 @@
         ES_JAVA_OPTS: "-Xms4096m -Xmx4096m"
         discovery.type: "single-node"
 
-- name: Run plugin install for elasticsearch-prometheus-exporter
-  command: docker exec elk_elasticsearch /usr/share/elasticsearch/bin/elasticsearch-plugin install -b https://distfiles.compuscene.net/elasticsearch/elasticsearch-prometheus-exporter-6.2.4.0.zip
+# WAIT UNTIL 6.4.0 IS AVAILABLE!!!!!!!!!!!!!!!!!
+# - name: Run plugin install for elasticsearch-prometheus-exporter
+#   command: docker exec elk_elasticsearch /usr/share/elasticsearch/bin/elasticsearch-plugin install -b https://distfiles.compuscene.net/elasticsearch/elasticsearch-prometheus-exporter-6.3.2.0.zip
 
 - name: Restart elk_elasticsearch container
   docker_container:

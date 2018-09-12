@@ -51,37 +51,164 @@
   tags:
     - k8s
 
+
+- name: "Apply the beegfs role"
+  hosts:
+    - k8s_master
+    - k8s_minion
+  become: yes
+  roles:
+    - beegfs
+  tags:
+    - beegfs
+
+
 # - name: "Oneoffs"
 #   hosts:
 #     - k8s_master
 #   tags:
 #     - fix
 #   become: yes
+
+#   vars:
+#     kibana_image: gitlab.catalyst.net.nz:4567/piers/logging-and-monitoring/kibana-with-logtrail:6.2.4
+#     logstash_image: gitlab.catalyst.net.nz:4567/piers/logging-and-monitoring/logstash-with-config:6.2.4
+#     elasticsearch_image: docker.elastic.co/elasticsearch/elasticsearch:6.2.4
+
 #   tasks:
 
-#     - name: Log into private registry
-#       docker_login:
-#         registry: gitlab.catalyst.net.nz:4567
-#         username: "{{ docker_user }}"
-#         password: "{{ docker_password }}"
+#       - name: elk remove containers
+#         docker_container:
+#           name: "{{ item }}"
+#           state: absent
+#         with_items:
+#           - elk_elasticsearch
+#           - elk_kibana
+#           - elk_logstash
 
-#     - name: Remove Kibana
-#       docker_container:
-#         name: "{{ item }}"
-#         state: absent
-#       with_items:
-#         - elk_kibana
+#       - name: Creates directory /var/lib/stack-data/elasticsearch
+#         file: 
+#           path: /var/lib/stack-data/elasticsearch
+#           state: directory
+#           mode: 0777
+#           owner: root
+#           group: root
 
-#     - name: Restart a Kibana
-#       docker_container:
-#         name: elk_kibana
-#         restart_policy: always
-#         image: "gitlab.catalyst.net.nz:4567/piers/logging-and-monitoring/kibana-with-logtrail:6.2.4"
-#         command: "kibana -e http://{{ ansible_default_ipv4.address }}:9200"
-#         state: started
-#         etc_hosts:
-#           elasticsearch: "{{ hostvars[groups['k8s_master'][0]]['secondary_ip'] if ('secondary_ip' in hostvars[groups['k8s_master'][0]]) else hostvars[groups['k8s_master'][0]]['ansible_default_ipv4']['address'] }}"
-#         labels:
-#           org.label-schema.group: monitoring
-#         ports:
-#         - "5601:5601"
+#       - name: Log into private registry
+#         docker_login:
+#           registry: gitlab.catalyst.net.nz:4567
+#           username: "{{ docker_user }}"
+#           password: "{{ docker_password }}"
+
+#       - name: docker pull images
+#         docker_image:
+#           state: present
+#           pull: true
+#           name: "{{ item }}"
+#         with_items:
+#           - "{{ elasticsearch_image }}"
+#           - "{{ kibana_image }}"
+#           - "{{ logstash_image }}"
+
+#       - name: Restart a Elasticsearch
+#         docker_container:
+#           name: elk_elasticsearch
+#           restart_policy: always
+#           image: "{{ elasticsearch_image }}"
+#           # command: -Ebootstrap.memory_lock="true" -Ecluster.name="elk" -Ediscovery.zen.minimum_master_nodes="1"  -Ehttp.host="0.0.0.0"  -Enetwork.host="0.0.0.0" -Etransport.host=127.0.0.1
+#           state: started
+#           labels:
+#             org.label-schema.group: monitoring
+#           volumes:
+#            - "/var/lib/stack-data/elasticsearch:/usr/share/elasticsearch/data"
+#           ports:
+#           - "9200:9200"
+#           - "9300:9300"
+#           env:
+#               bootstrap.memory_lock: "true"
+#               cluster.name: "elk"
+#               discovery.zen.minimum_master_nodes: "1"
+#               http.host: "0.0.0.0"
+#               network.host: "0.0.0.0"
+#               transport.host: "127.0.0.1"
+#               ES_JAVA_OPTS: "-Xms4096m -Xmx4096m"
+#               discovery.type: "single-node"
+
+#       - name: Run plugin install for elasticsearch-prometheus-exporter
+#         command: docker exec elk_elasticsearch /usr/share/elasticsearch/bin/elasticsearch-plugin install -b https://distfiles.compuscene.net/elasticsearch/elasticsearch-prometheus-exporter-6.2.4.0.zip
+
+#       - name: Restart elk_elasticsearch container
+#         docker_container:
+#           name: elk_elasticsearch
+#           # state: started
+#           restart: yes
+
+#       # https://github.com/vvanholl/elasticsearch-prometheus-exporter
+#       # /bin/elasticsearch-plugin install -b https://distfiles.compuscene.net/elasticsearch/elasticsearch-prometheus-exporter-6.2.4.0.zip
+
+#       # add so elasticsearch-head works
+#       # https://github.com/mobz/elasticsearch-head
+#       # /usr/share/elasticsearch/config/elasticsearch.yml
+#       # http.cors.enabled: true
+#       # http.cors.allow-origin: "*"
+
+#       - name: Restart a Kibana
+#         docker_container:
+#           name: elk_kibana
+#           restart_policy: always
+#           image: "{{ kibana_image }}"
+#           command: "kibana -e http://{{ ansible_default_ipv4.address }}:9200"
+#           state: started
+#           etc_hosts:
+#             elasticsearch: "{{ hostvars[groups['k8s_master'][0]]['secondary_ip'] if ('secondary_ip' in hostvars[groups['k8s_master'][0]]) else hostvars[groups['k8s_master'][0]]['ansible_default_ipv4']['address'] }}"
+#           labels:
+#             org.label-schema.group: monitoring
+#           ports:
+#           - "5601:5601"
+
+
+#       - name: Creates directory /var/lib/stack-data/logstash
+#         file: 
+#           path: /var/lib/stack-data/logstash
+#           state: directory
+#           mode: 0755
+#           owner: root
+#           group: root
+
+#       - name: Creates directory /etc/logstash
+#         file: path=/etc/logstash state=directory
+
+#       # - name: Configure Logstash
+#       #   template: src="pipeline.conf.j2" dest=/etc/logstash/logstash.conf mode=0644
+
+#       - name: Restart a Logstash
+#         docker_container:
+#           name: elk_logstash
+#           restart_policy: always
+#           image: "{{ logstash_image }}"
+#           command: logstash -f /usr/share/logstash/pipeline/logstash.conf -r -w 16 -b 256 -u 50
+#           # /boot.sh
+#           state: started
+#           etc_hosts:
+#             elasticsearch: "{{ hostvars[groups['k8s_master'][0]]['secondary_ip'] if ('secondary_ip' in hostvars[groups['k8s_master'][0]]) else hostvars[groups['k8s_master'][0]]['ansible_default_ipv4']['address'] }}"
+#           labels:
+#             org.label-schema.group: logging
+#           volumes:
+#            - "/var/log/journal:/var/log/journal:ro"
+#            - "/var/lib/stack-data/logstash:/var/lib/logstash:z"
+#            - "/etc/logstash:/usr/share/logstash/pipeline:ro"
+#            - "/sys:/sys:ro"
+#           ports:
+#           - "5044:5044"
+#           - "5045:5045"
+#           - "9554:9554"
+#           # - "9500:9500"
+#           # - "9500:9500/udp"
+#           # - "9600:9600"
+#           # - "9514:9514/udp"
+#           # - "9599:9599/udp"
+#           - "9699:9699/udp"
+#           env:
+#               LOGSPOUT: "ignore"
+#               ES_JAVA_OPTS: "-Xms4g -Xmx4g"
+

@@ -1,0 +1,194 @@
+---
+
+- name: Set the host grouping
+  set_fact:
+    host_grouping: "{% if not inventory_hostname in groups['k8s_minion'] %}compute{% else %}controller{% endif %}"
+
+- name: set cluster API address.
+  set_fact:
+    cluster_api_address: "{{ hostvars[groups['k8s_master'][0]]['secondary_ip'] if ('secondary_ip' in hostvars[groups['k8s_master'][0]]) else hostvars[groups['k8s_master'][0]]['ansible_default_ipv4']['address'] }}"
+
+- name: set master name.
+  set_fact:
+    cluster_master: "{{ groups['k8s_master'][0] }}"
+
+
+- name: Get Kernel version
+  shell: uname -r
+  register: kernel_version
+
+# - name: Build cinder volume groups
+#   lvg:
+#     vg: "{{ item.vg }}"
+#     pvs: "{{ item.pvs }}"
+#   with_items:
+#     - vg: cinder-volumes
+#       pvs: /dev/sdb
+
+- name: beegfs apt key
+  apt_key:
+    url: https://www.beegfs.io/release/latest-stable/gpg/DEB-GPG-KEY-beegfs
+    state: present
+
+- name: add beegfs repo
+  apt_repository:
+    repo: deb [arch=amd64] http://www.beegfs.io/release/beegfs_7 deb9 non-free
+    state: present
+    filename: beegfs
+    update_cache: yes
+- name: Ensure required packages are installed (apt)
+  apt:
+    name: "{{ item }}"
+    update_cache: yes
+    state: installed
+  with_items:
+    - python-pip
+    - python3-pip
+    - python-setuptools
+    - python3-setuptools
+    - linux-headers-generic
+    - linux-headers-{{ kernel_version.stdout }}
+
+- name: Ensure beegfs packages are installed (apt)
+  apt:
+    name: "{{ item }}"
+    update_cache: yes
+    state: present
+  with_items:
+    - beegfs-client
+    - beegfs-helperd
+    - beegfs-utils
+    - beegfs-common
+    - jq
+
+- name: Rebuild beegfs kernel module
+  shell: /etc/init.d/beegfs-client rebuild
+
+- name: Add the beegfs module
+  modprobe:
+    name: beegfs
+    state: present
+
+- name: Ensure the home directory for beegfs data exists
+  file:
+    path: "/data/beegfs"
+    state: directory
+  when: "inventory_hostname in groups['k8s_master']"
+
+- name: Ensure beegfs master server packages are installed (apt)
+  apt:
+    name: "{{ item }}"
+    update_cache: yes
+    state: present
+  with_items:
+    - beegfs-mgmtd
+    - beegfs-meta
+    - beegfs-storage
+  when: "inventory_hostname in groups['k8s_master']"
+
+- name: beegfs interface file
+  blockinfile:
+    dest: "/etc/beegfs/ifaces"
+    insertbefore: EOF
+    create: yes
+    owner: root
+    group: root
+    mode: 0644
+    block: |
+      em1
+      p3p1
+      ib0
+
+- name: Set beegfs management directory
+  lineinfile:
+    regexp: '^storeMgmtdDirectory'
+    line: 'storeMgmtdDirectory      = /data/beegfs/beegfs_mgmtd'
+    path: /etc/beegfs/beegfs-mgmtd.conf
+  when: "inventory_hostname in groups['k8s_master']"
+
+- name: Set beegfs interfacefile - mgmtd
+  lineinfile:
+    regexp: '^connInterfacesFile'
+    line: 'connInterfacesFile      = /etc/beegfs/ifaces'
+    path: /etc/beegfs/beegfs-mgmtd.conf
+  when: "inventory_hostname in groups['k8s_master']"
+
+- name: Set beegfs client config point to master
+  lineinfile:
+    regexp: '^sysMgmtdHost'
+    line: "sysMgmtdHost                  = {{ cluster_master }}"
+    path: /etc/beegfs/beegfs-client.conf
+
+- name: Set beegfs interfacefile - client
+  lineinfile:
+    regexp: '^connInterfacesFile'
+    line: 'connInterfacesFile      = /etc/beegfs/ifaces'
+    path: /etc/beegfs/beegfs-client.conf
+
+- name: Restart beegfs-mgmtd
+  service: name=beegfs-mgmtd state=restarted
+  when: "inventory_hostname in groups['k8s_master']"
+
+- name: Set beegfs metadata config point to master
+  lineinfile:
+    regexp: '^sysMgmtdHost'
+    line: "sysMgmtdHost                  = {{ cluster_master }}"
+    path: /etc/beegfs/beegfs-meta.conf
+  when: "inventory_hostname in groups['k8s_master']"
+
+- name: Set beegfs metadata config directory
+  lineinfile:
+    regexp: '^storeMetaDirectory'
+    line: "storeMetaDirectory           = /data/beegfs/beegfs_meta"
+    path: /etc/beegfs/beegfs-meta.conf
+  when: "inventory_hostname in groups['k8s_master']"
+
+- name: Set beegfs interfacefile - meta
+  lineinfile:
+    regexp: '^connInterfacesFile'
+    line: 'connInterfacesFile      = /etc/beegfs/ifaces'
+    path: /etc/beegfs/beegfs-meta.conf
+  when: "inventory_hostname in groups['k8s_master']"
+
+- name: Restart beegfs-meta
+  service: name=beegfs-meta state=restarted
+  when: "inventory_hostname in groups['k8s_master']"
+
+- name: Set beegfs storage config point to master
+  lineinfile:
+    regexp: '^sysMgmtdHost'
+    line: "sysMgmtdHost                  = {{ cluster_master }}"
+    path: /etc/beegfs/beegfs-storage.conf
+  when: "inventory_hostname in groups['k8s_master']"
+
+- name: Set beegfs storage config directory
+  lineinfile:
+    regexp: '^storeStorageDirectory'
+    line: "storeStorageDirectory           = /data/beegfs/storage"
+    path: /etc/beegfs/beegfs-storage.conf
+  when: "inventory_hostname in groups['k8s_master']"
+
+- name: Set beegfs interfacefile - storage
+  lineinfile:
+    regexp: '^connInterfacesFile'
+    line: 'connInterfacesFile      = /etc/beegfs/ifaces'
+    path: /etc/beegfs/beegfs-storage.conf
+  when: "inventory_hostname in groups['k8s_master']"
+
+- name: Restart beegfs-storage
+  service: name=beegfs-storage state=restarted
+  when: "inventory_hostname in groups['k8s_master']"
+
+- name: Ensure the mount directory for beegfs data exists
+  file:
+    path: "/mnt/beegfs"
+    state: directory
+  when: "inventory_hostname in groups['k8s_master']"
+
+- name: Restart beegfs-helperd
+  service: name=beegfs-helperd state=restarted
+
+- name: Restart beegfs-client
+  service: name=beegfs-client state=restarted
+
+- meta: flush_handlers

@@ -14,7 +14,7 @@
     pvs: "{{ item.pvs }}"
   with_items:
     - vg: cinder-volumes
-      pvs: /dev/sdd
+      pvs: /dev/sdb
 
 - name: Ensure required packages are installed (apt)
   apt:

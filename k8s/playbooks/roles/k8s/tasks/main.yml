@@ -11,13 +11,19 @@
   # when: "inventory_hostname in groups['k8s_master']"
 
 - name: Add kubernetes DNS
-  lineinfile:
-    line: 'nameserver 10.96.0.10\nsearch default.svc.cluster.local'
-    dest: /etc/resolvconf/resolv.conf.d/head
+  blockinfile:
+    dest: "/etc/resolvconf/resolv.conf.d/head"
+    insertbefore: EOF
     create: yes
     owner: root
     group: root
     mode: 0644
+    block: |
+      nameserver 10.96.0.10
+      search default.svc.cluster.local svc.cluster.local cluster.local
+      options ndots:5
+
+    marker: "# {mark} ANSIBLE MANAGED BLOCK for {{ inventory_hostname }} k8s node"
   register: flushresolveconf
 
 - name: Flush resolvconf
@@ -304,7 +310,7 @@
 - name: Wait for nodes to join
   shell: "kubectl --kubeconfig=/etc/kubernetes/admin.conf get nodes  | grep {{ inventory_hostname }}"
   register: calico_check
-  until: calico_check|success
+  until: calico_check is success
   retries: 10
   delay: 30
   delegate_to: "{{ groups['k8s_master'][0] }}"
@@ -376,9 +382,9 @@
     - skip_ansible_lint # Suppressing the linter
 
 - name: Wait for busybox to come up
-  shell: "kubectl --kubeconfig=/etc/kubernetes/admin.conf get pods --field-selector 'status.phase!=Running' --all-namespaces"
+  shell: "kubectl --kubeconfig=/etc/kubernetes/admin.conf get pod busybox"
   register: busybox_check
-  until: busybox_check.stdout_lines | reject('search','^No resources found') | list | count == 0
+  until: busybox_check.stdout_lines | reject('search','^NAME') | list | count == 1
   retries: 10
   delay: 30
   # delegate_to: "{{ groups['k8s_master'][0] }}"
@@ -750,32 +756,32 @@
 # https://github.com/fabric8io/fabric8/issues/6840
 
 
-# - name: Configure cinder RBAC
-#   template: src=cinder-role.yml.j2 dest="/home/ubuntu/cinder-role.yml"
-#   when: inventory_hostname in groups['k8s_master']
+- name: Configure cinder RBAC
+  template: src=cinder-role.yml.j2 dest="/home/ubuntu/cinder-role.yml"
+  when: inventory_hostname in groups['k8s_master']
 
-# - name: Check if Cinder clusterrolebinding is active
-#   shell: kubectl --kubeconfig=/etc/kubernetes/admin.conf get clusterrolebindings  cinder-rbac
-#   changed_when: False
-#   register: kubectl_cinder_role
-#   ignore_errors: true
-#   delegate_to: "{{ groups['k8s_master'][0] }}"
-#   delegate_facts: True
-#   # when: "inventory_hostname in groups['k8s_master']"
-#   tags:
-#     - skip_ansible_lint # Suppressing the linter
+- name: Check if Cinder clusterrolebinding is active
+  shell: kubectl --kubeconfig=/etc/kubernetes/admin.conf get clusterrolebindings  cinder-rbac
+  changed_when: False
+  register: kubectl_cinder_role
+  ignore_errors: true
+  delegate_to: "{{ groups['k8s_master'][0] }}"
+  delegate_facts: True
+  # when: "inventory_hostname in groups['k8s_master']"
+  tags:
+    - skip_ansible_lint # Suppressing the linter
 
-# - name: "Show kubectl_cinder_role"
-#   debug: var=kubectl_cinder_role
-#   when: debug
+- name: "Show kubectl_cinder_role"
+  debug: var=kubectl_cinder_role
+  when: debug
 
-# - name: Init Cinder clusterrolebinding on the first master.
-#   shell: kubectl --kubeconfig=/etc/kubernetes/admin.conf 
-#          apply -f /home/ubuntu/cinder-role.yml
-#   when: "not kubectl_cinder_role.rc == 0
-#     and inventory_hostname in groups['k8s_master']"
-#   tags:
-#     - skip_ansible_lint # Suppressing the linter
+- name: Init Cinder clusterrolebinding on the first master.
+  shell: kubectl --kubeconfig=/etc/kubernetes/admin.conf 
+         apply -f /home/ubuntu/cinder-role.yml
+  when: "not kubectl_cinder_role.rc == 0
+    and inventory_hostname in groups['k8s_master']"
+  tags:
+    - skip_ansible_lint # Suppressing the linter
 
 
 - name: Configure cinder volume manager

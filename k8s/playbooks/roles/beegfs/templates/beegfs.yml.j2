@@ -1,0 +1,126 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: beegfs-mgmtd
+  labels:
+    name: beegfs-mgmtd
+spec:
+  containers:
+    - image: redcoolbeans/beegfs-management
+      name: node01
+      ports:
+        - containerPort: 8008
+          protocol: TCP
+        - containerPort: 8008
+          protocol: UDP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    name: node01
+  name: node01
+spec:
+  ports:
+  - protocol: TCP
+    name: node01-tcp
+    port: 8008
+    targetPort: 8008
+  - protocol: UDP
+    name: node01-udp
+    port: 8008
+    targetPort: 8008
+  selector:
+    name: beegfs-mgmtd
+#  externalIPs:
+#  - $EXT_IP1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: beegfs-meta
+  labels:
+    name: beegfs-meta
+spec:
+  containers:
+    - image: redcoolbeans/beegfs-metadata
+      name: node02
+      env:
+        - name: METADATA_SERVICE_ID
+          value: "2"
+      ports:
+        - containerPort: 8005
+          protocol: TCP
+        - containerPort: 8005
+          protocol: UDP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    name: node02
+  name: node02
+spec:
+  ports:
+  - protocol: TCP
+    name: node02-tcp
+    port: 8005
+    targetPort: 8005
+  - protocol: UDP
+    name: node02-udp
+    port: 8005
+    targetPort: 8005
+  selector:
+    name: beegfs-meta
+#  externalIPs:
+#  - $EXT_IP1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: beegfs-storage
+  labels:
+    name: beegfs-storage
+spec:
+  containers:
+    - image: redcoolbeans/beegfs-storage
+      name: node03
+      env:
+        - name: STORAGE_SERVICE_ID
+          value: "3"
+        - name: STORAGE_TARGET_ID
+          value: "301"
+      ports:
+        - containerPort: 8003
+          protocol: TCP
+        - containerPort: 8003
+          protocol: UDP
+      volumeMounts:
+        - name: beegfs-storage
+          mountPath: /data
+  volumes:
+    - name: beegfs-storage
+      emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    name: node03
+  name: node03
+spec:
+  ports:
+  - protocol: TCP
+    name: node03-tcp
+    port: 8003
+    targetPort: 8003
+  - protocol: UDP
+    name: node03-udp
+    port: 8003
+    targetPort: 8003
+  selector:
+    name: beegfs-storage
+#  externalIPs:
+#  - $EXT_IP1
+
